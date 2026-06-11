@@ -3,6 +3,7 @@ import ServiceManagement
 
 struct PopoverView: View {
     @EnvironmentObject private var poller: UsagePoller
+    var chromeless = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -10,7 +11,7 @@ struct PopoverView: View {
                 emptyState
             } else {
                 ForEach(poller.snapshot.accounts) { account in
-                    AccountCard(account: account)
+                    AccountCard(account: account, chromeless: chromeless)
                 }
             }
             Divider()
@@ -38,6 +39,15 @@ struct PopoverView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if chromeless { EmptyView() } else {
+                footerControls
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var footerControls: some View {
+        Group {
             Button {
                 poller.refresh(force: true)
             } label: {
@@ -102,6 +112,7 @@ private struct SettingsMenu: View {
 
 private struct AccountCard: View {
     let account: AccountUsage
+    var chromeless = false
     @EnvironmentObject private var poller: UsagePoller
     @Environment(\.openWindow) private var openWindow
 
@@ -124,7 +135,7 @@ private struct AccountCard: View {
                 }
                 Spacer()
                 statusBadge
-                tokenMenu
+                if !chromeless { tokenMenu }
             }
             content
         }
@@ -210,8 +221,7 @@ private struct UsageRow: View {
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
-            ProgressView(value: min(max(window.utilization, 0), 100), total: 100)
-                .tint(UsageFormat.color(window.utilization))
+            UsageBar(fraction: window.utilization / 100, color: UsageFormat.color(window.utilization))
             Text(UsageFormat.resetText(window.resetsAt))
                 .font(.caption)
                 .foregroundStyle(.secondary)

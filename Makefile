@@ -3,7 +3,7 @@ BUILD_DIR := build
 APP_PATH := $(BUILD_DIR)/Build/Products/Release/$(APP).app
 INSTALL_DIR := /Applications
 
-.PHONY: install build gen run clean
+.PHONY: install build gen run clean screenshots
 
 # Full install (deps check + build + copy to /Applications + launch).
 install:
@@ -20,6 +20,10 @@ build: gen
 run: build
 	@pkill -x $(APP) 2>/dev/null || true
 	open "$(APP_PATH)"
+
+# Regenerate the README images from the app's own views (anonymized sample data).
+screenshots: build
+	"$(APP_PATH)/Contents/MacOS/$(APP)" --render-docs "$(PWD)/docs/images"
 
 clean:
 	rm -rf $(BUILD_DIR) $(APP).xcodeproj

@@ -8,11 +8,6 @@ struct ClaudePulseWidgetBundle: WidgetBundle {
     }
 }
 
-struct UsageEntry: TimelineEntry {
-    let date: Date
-    let snapshot: UsageSnapshot
-}
-
 struct UsageTimelineProvider: TimelineProvider {
     func placeholder(in context: Context) -> UsageEntry {
         UsageEntry(date: Date(), snapshot: .sample)

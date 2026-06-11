@@ -1,9 +1,17 @@
 import WidgetKit
 import SwiftUI
 
+struct UsageEntry: TimelineEntry {
+    let date: Date
+    let snapshot: UsageSnapshot
+}
+
 struct UsageWidgetView: View {
-    @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetFamily) private var environmentFamily
     let entry: UsageEntry
+    var familyOverride: WidgetFamily? = nil
+
+    private var family: WidgetFamily { familyOverride ?? environmentFamily }
 
     var body: some View {
         if entry.snapshot.accounts.isEmpty {
@@ -122,8 +130,7 @@ private struct WindowGauge: View {
                 Text("\(Int(window.utilization.rounded()))%")
                     .font(.caption2.bold().monospacedDigit())
             }
-            ProgressView(value: min(max(window.utilization, 0), 100), total: 100)
-                .tint(UsageFormat.color(window.utilization))
+            UsageBar(fraction: window.utilization / 100, color: UsageFormat.color(window.utilization), height: 5)
         }
     }
 }

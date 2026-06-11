@@ -15,6 +15,21 @@ password prompt.
 - **Widget:** small (first subscription) or medium (all) for your desktop / Notification
   Center.
 
+## Screenshots
+
+Menubar:
+
+![Menubar](docs/images/menubar.png)
+
+Popover (click the menubar icon) and the medium widget:
+
+![Popover](docs/images/popover.png)
+![Widget](docs/images/widget.png)
+
+> Sample data shown. These images are generated from the app's own views via
+> `make screenshots` (renders `UsageSnapshot.sample`), so they never contain real
+> account data and regenerate from code — no manual editing.
+
 ## Requirements
 
 | Need | Why | Auto-installed? |

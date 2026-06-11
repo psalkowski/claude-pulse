@@ -19,6 +19,12 @@ final class UsagePoller: ObservableObject {
         snapshot = SnapshotStore.load() ?? .empty
     }
 
+    // For doc rendering only: a poller seeded with fixed data and no timers.
+    init(previewing snapshot: UsageSnapshot) {
+        self.snapshot = snapshot
+        self.started = true
+    }
+
     func start() {
         guard !started else { return }
         started = true
