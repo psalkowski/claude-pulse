@@ -1,0 +1,55 @@
+name: ClaudePulse
+options:
+  bundleIdPrefix: com.claudepulse
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: false
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  ClaudePulse:
+    type: application
+    platform: macOS
+    sources:
+      - ClaudePulse
+      - Shared
+    info:
+      path: ClaudePulse/Info.plist
+      properties:
+        CFBundleDisplayName: Claude Pulse
+        LSUIElement: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.claudepulse.app
+        PRODUCT_NAME: ClaudePulse
+    dependencies:
+      - target: ClaudePulseWidget
+        embed: true
+  ClaudePulseWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - ClaudePulseWidget
+      - Shared
+    entitlements:
+      path: ClaudePulseWidget/ClaudePulseWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.temporary-exception.files.home-relative-path.read-only:
+          - /Library/Application Support/ClaudePulse/
+    info:
+      path: ClaudePulseWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Claude Pulse Widget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.claudepulse.app.widget
