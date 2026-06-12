@@ -1,9 +1,12 @@
 import SwiftUI
 import AppKit
+import WidgetKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         DocRenderer.renderIfRequested()
+        _ = AppUpdater.shared
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }
 

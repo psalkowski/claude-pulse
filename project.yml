@@ -4,6 +4,10 @@ options:
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.3
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -25,6 +29,12 @@ targets:
       properties:
         CFBundleDisplayName: Claude Pulse
         LSUIElement: true
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        SUFeedURL: https://github.com/psalkowski/claude-pulse/releases/latest/download/appcast.xml
+        SUPublicEDKey: Z7YW103E1PPzc9j+ygwjyFEzpuIiMbtBJ0RRb8kymB4=
+        SUEnableAutomaticChecks: true
+        SUAutomaticallyUpdate: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.claudepulse.app
@@ -32,6 +42,7 @@ targets:
     dependencies:
       - target: ClaudePulseWidget
         embed: true
+      - package: Sparkle
   ClaudePulseWidget:
     type: app-extension
     platform: macOS
@@ -48,6 +59,8 @@ targets:
       path: ClaudePulseWidget/Info.plist
       properties:
         CFBundleDisplayName: Claude Pulse Widget
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

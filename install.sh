@@ -31,9 +31,18 @@ command -v jq >/dev/null 2>&1 || echo "  (note: 'brew install jq' if you want to
 echo "▸ Generating project…"
 xcodegen >/dev/null
 
-echo "▸ Building (Release)…"
+# Version stamp from git: marketing version from the latest tag, build number
+# from the commit count (what Sparkle compares between installs and releases).
+MARKETING_VERSION="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
+[ -n "$MARKETING_VERSION" ] || MARKETING_VERSION="0.1.0"
+BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null)"
+[ -n "$BUILD_NUMBER" ] || BUILD_NUMBER="1"
+
+echo "▸ Building (Release, v$MARKETING_VERSION build $BUILD_NUMBER)…"
 xcodebuild -project ClaudePulse.xcodeproj -scheme ClaudePulse \
-  -configuration Release -derivedDataPath build build >/dev/null
+  -configuration Release -derivedDataPath build \
+  MARKETING_VERSION="$MARKETING_VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+  build >/dev/null
 
 APP="build/Build/Products/Release/ClaudePulse.app"
 echo "▸ Installing to /Applications…"
