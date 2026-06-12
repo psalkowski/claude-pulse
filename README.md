@@ -40,23 +40,47 @@ Popover (click the menubar icon) and the medium widget:
 | Apple Silicon | Release binaries are arm64-only (Intel: [build from source](#development--build-from-source)) |
 | One or more logged-in Claude Code subscriptions | Source of the accounts |
 
-No Apple Developer account, paid membership, or signing certificate is involved — the
-app is ad-hoc signed.
+Release builds are **ad-hoc signed** (no paid Apple Developer account), so macOS
+Gatekeeper asks for a one-time confirmation on first launch — see [Install](#install).
 
 ## Install
 
-1. Download the latest `ClaudePulse-*.zip` from
-   [Releases](https://github.com/psalkowski/claude-pulse/releases/latest) and unzip it.
-2. **Move `ClaudePulse.app` to `/Applications`** — required; running it from
-   `~/Downloads` would let macOS "translocate" it to a read-only location and break
-   auto-updates.
-3. First launch only: macOS blocks unsigned downloads. Open **System Settings →
-   Privacy & Security**, scroll down, click **Open Anyway** (or run
-   `xattr -d com.apple.quarantine /Applications/ClaudePulse.app` and open normally).
+### Homebrew (recommended)
 
-That's the last manual install: from then on the app **updates itself** — it checks
-GitHub daily, downloads new releases in the background, and relaunches into the new
-version silently. The gear menu's **Check for Updates…** triggers a check on demand.
+```sh
+brew install --cask --no-quarantine psalkowski/tap/claude-pulse
+```
+
+`--no-quarantine` lets the app launch right away. Claude Pulse is ad-hoc signed
+(free — no paid Apple Developer account), so without that flag Gatekeeper would
+block the first launch; the [direct-download](#direct-download-dmg) steps show the
+one-time bypass.
+
+### Direct download (.dmg)
+
+1. Download the latest `ClaudePulse-*.dmg` from
+   [Releases](https://github.com/psalkowski/claude-pulse/releases/latest).
+2. Open it and **drag `ClaudePulse` onto the `Applications` folder** (uninstalling
+   later is just moving it to the Trash).
+3. **First launch only:** because the app isn't notarized by Apple, Gatekeeper
+   blocks it once ("Apple could not verify…"). Click **Done** (not *Move to
+   Trash*), open **System Settings → Privacy & Security**, scroll down, click
+   **Open Anyway** — or run
+   `xattr -dr com.apple.quarantine /Applications/ClaudePulse.app` and launch
+   normally. macOS remembers the choice. (Right-click → Open no longer bypasses
+   Gatekeeper on macOS 15+.)
+
+### Starting it — look in the menubar
+
+Claude Pulse is a **menubar app**: it has **no Dock icon and no window**. When it's
+running you'll see a small **ring icon in your menubar** (top-right of the screen);
+click it for the full breakdown. On first launch it enables **Launch at Login**, so
+it comes back automatically every time you log in — toggle that off in the gear menu
+if you'd rather start it yourself.
+
+From then on the app **updates itself** — it checks GitHub daily, downloads new
+releases in the background, and relaunches into the new version silently. The gear
+menu's **Check for Updates…** triggers a check on demand.
 
 ## First-time setup (one token per subscription)
 
@@ -130,12 +154,14 @@ commit count), so a source build behind the newest release will auto-update to t
 release binary, while a build ahead of it is left alone.
 
 Releases are cut by pushing a tag: `git tag v0.X.Y && git push origin v0.X.Y` — GitHub
-Actions builds, signs (Sparkle EdDSA), and publishes the zip + appcast.
+Actions builds, ad-hoc signs the app, signs the Sparkle appcast (EdDSA), publishes the
+DMG + zip + appcast, and bumps the Homebrew cask. One-time setup for the pipeline is
+documented in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Notes
 
-- Ad-hoc signed — macOS warns once on first launch of a downloaded copy (see Install);
-  Sparkle-installed updates never re-trigger Gatekeeper.
+- Ad-hoc signed (no paid Apple Developer account): Gatekeeper asks for a one-time
+  confirmation on first launch of a downloaded copy (`--no-quarantine` skips even
+  that via Homebrew); Sparkle updates never re-trigger it.
 - The request mimics Claude Code (`User-Agent: claude-cli/...`, `anthropic-beta:
   oauth-2025-04-20`) — required, or the endpoint rate-limits aggressively.
-- See [SPEC.md](SPEC.md) for the full design and rationale.
