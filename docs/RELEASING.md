@@ -67,11 +67,16 @@ Lets the release workflow push an updated cask to your tap. Without it, the
 Users then install with:
 
 ```sh
-HOMEBREW_CASK_OPTS=--no-quarantine brew install --cask psalkowski/tap/claude-pulse
+brew install --cask psalkowski/tap/claude-pulse
+xattr -dr com.apple.quarantine /Applications/ClaudePulse.app
 ```
 
-(Homebrew 6 removed the `--no-quarantine` CLI flag; the env var works on all
-versions, and on Homebrew ≤ 5 the flag can still be passed directly.)
+Homebrew always quarantines casks. As of Homebrew 6 the `--no-quarantine` CLI
+flag was removed **and** `HOMEBREW_CASK_OPTS=--no-quarantine` is ignored by
+`brew install --cask` (the install command no longer threads the quarantine
+option through — verified in `cmd/install.rb`), so an ad-hoc app always lands
+quarantined. Clearing the flag with `xattr` (printed by the cask's caveats) is
+the reliable bypass; *Open Anyway* in System Settings works too.
 
 The canonical cask lives in [`Casks/claude-pulse.rb`](../Casks/claude-pulse.rb)
 (the `version`/`sha256` placeholders are seeds — CI patches them per release).

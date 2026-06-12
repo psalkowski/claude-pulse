@@ -14,9 +14,11 @@ cask "claude-pulse" do
   end
 
   auto_updates true
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "ClaudePulse.app"
+
+  uninstall quit: "com.claudepulse.app"
 
   zap trash: [
     "~/Library/Application Support/ClaudePulse",
@@ -25,12 +27,14 @@ cask "claude-pulse" do
   ]
 
   caveats <<~EOS
-    Claude Pulse is ad-hoc signed (not notarized). If it was installed with
-    quarantine enabled, macOS blocks the first launch ("Apple could not
-    verify..."): allow it via System Settings -> Privacy & Security -> Open
-    Anyway, or run:
+    Claude Pulse is ad-hoc signed (not notarized), so macOS Gatekeeper blocks the
+    first launch ("Apple could not verify..."). Homebrew always quarantines casks
+    (the --no-quarantine flag and HOMEBREW_CASK_OPTS no longer disable it), so
+    after install run this once to allow it:
+
       xattr -dr com.apple.quarantine /Applications/ClaudePulse.app
-    To skip quarantine at install time:
-      HOMEBREW_CASK_OPTS=--no-quarantine brew reinstall --cask claude-pulse
+
+    Then open it normally. (Alternatively: launch it once, click Done, then
+    System Settings -> Privacy & Security -> Open Anyway.)
   EOS
 end
