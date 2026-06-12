@@ -49,8 +49,12 @@ Gatekeeper asks for a one-time confirmation on first launch — see [Install](#i
 
 ```sh
 brew install --cask psalkowski/tap/claude-pulse
-xattr -dr com.apple.quarantine /Applications/ClaudePulse.app
+xattr -dr com.apple.quarantine ~/Applications/ClaudePulse.app
 ```
+
+The cask installs into **`~/Applications`** (per-user, created if missing) rather than
+`/Applications`, so installing — and Sparkle's self-updates — never need admin rights,
+which managed (MDM) company Macs typically require for `/Applications`.
 
 Claude Pulse is ad-hoc signed (free — no paid Apple Developer account), so
 Gatekeeper blocks the first launch of any quarantined copy. Homebrew always
@@ -64,12 +68,14 @@ via System Settings → Privacy & Security → Open Anyway on first launch.)
 1. Download the latest `ClaudePulse-*.dmg` from
    [Releases](https://github.com/psalkowski/claude-pulse/releases/latest).
 2. Open it and **drag `ClaudePulse` onto the `Applications` folder** (uninstalling
-   later is just moving it to the Trash).
+   later is just moving it to the Trash). No admin rights (managed company Mac)?
+   Drag it into **`~/Applications`** in your home folder instead — the app and its
+   self-updates work identically from there, without ever prompting for a password.
 3. **First launch only:** because the app isn't notarized by Apple, Gatekeeper
    blocks it once ("Apple could not verify…"). Click **Done** (not *Move to
    Trash*), open **System Settings → Privacy & Security**, scroll down, click
    **Open Anyway** — or run
-   `xattr -dr com.apple.quarantine /Applications/ClaudePulse.app` and launch
+   `xattr -dr com.apple.quarantine <path-to>/ClaudePulse.app` and launch
    normally. macOS remembers the choice. (Right-click → Open no longer bypasses
    Gatekeeper on macOS 15+.)
 

@@ -16,7 +16,9 @@ cask "claude-pulse" do
   auto_updates true
   depends_on macos: :sonoma
 
-  app "ClaudePulse.app"
+  # User-level install: Sparkle self-updates without an admin prompt, which
+  # /Applications requires on managed (MDM) Macs.
+  app "ClaudePulse.app", target: "#{Dir.home}/Applications/ClaudePulse.app"
 
   uninstall quit: "com.claudepulse.app"
 
@@ -32,7 +34,7 @@ cask "claude-pulse" do
     (the --no-quarantine flag and HOMEBREW_CASK_OPTS no longer disable it), so
     after install run this once to allow it:
 
-      xattr -dr com.apple.quarantine /Applications/ClaudePulse.app
+      xattr -dr com.apple.quarantine ~/Applications/ClaudePulse.app
 
     Then open it normally. (Alternatively: launch it once, click Done, then
     System Settings -> Privacy & Security -> Open Anyway.)
