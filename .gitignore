@@ -1,4 +1,5 @@
 build/
+dist/
 ClaudePulse.xcodeproj/
 .DS_Store
 CLAUDE.local.md

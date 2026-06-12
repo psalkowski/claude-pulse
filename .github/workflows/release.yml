@@ -13,15 +13,17 @@ env:
 jobs:
   release:
     runs-on: macos-15
+    env:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - name: Install tools
+        run: brew install xcodegen create-dmg
 
-      - name: Build (stamped from tag)
+      - name: Build (ad-hoc signed, stamped from tag)
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           BUILD_NUMBER="$(git rev-list --count HEAD)"
@@ -30,13 +32,35 @@ jobs:
             -configuration Release -derivedDataPath build \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             build
+          codesign --force --deep --sign - \
+            "build/Build/Products/Release/ClaudePulse.app"
 
-      - name: Sign and archive
+      - name: Package app (zip for Sparkle)
         run: |
           APP="build/Build/Products/Release/ClaudePulse.app"
-          codesign --force --deep -s - "$APP"
           mkdir dist
-          ditto -c -k --sequesterRsrc --keepParent "$APP" "dist/ClaudePulse-${GITHUB_REF_NAME#v}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" \
+            "dist/ClaudePulse-${GITHUB_REF_NAME#v}.zip"
+
+      - name: Create DMG (drag-to-Applications)
+        run: |
+          APP="build/Build/Products/Release/ClaudePulse.app"
+          DMG="ClaudePulse-${GITHUB_REF_NAME#v}.dmg"
+          mkdir dmg-stage
+          ditto "$APP" "dmg-stage/ClaudePulse.app"
+          make_dmg() {
+            create-dmg \
+              --volname "Claude Pulse" \
+              --window-pos 200 120 \
+              --window-size 580 360 \
+              --icon-size 128 \
+              --icon "ClaudePulse.app" 150 170 \
+              --app-drop-link 430 170 \
+              --hide-extension "ClaudePulse.app" \
+              "$DMG" dmg-stage
+          }
+          # Finder scripting for the window layout is occasionally flaky on CI runners.
+          make_dmg || { rm -f "$DMG"; make_dmg; }
 
       - name: Generate signed appcast
         env:
@@ -50,10 +74,30 @@ jobs:
             --maximum-versions 1 \
             -o dist/appcast.xml dist
 
-      - name: Publish release (zip + appcast atomically)
+      - name: Publish release (dmg + zip + appcast atomically)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            "dist/ClaudePulse-${GITHUB_REF_NAME#v}.zip" dist/appcast.xml \
+            "ClaudePulse-${GITHUB_REF_NAME#v}.dmg" \
+            "dist/ClaudePulse-${GITHUB_REF_NAME#v}.zip" \
+            dist/appcast.xml \
             --title "Claude Pulse ${GITHUB_REF_NAME}" --generate-notes
+
+      - name: Bump Homebrew cask
+        if: env.HOMEBREW_TAP_TOKEN != ''
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          DMG="ClaudePulse-${VERSION}.dmg"
+          SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/homebrew-tap.git" tap
+          mkdir -p tap/Casks
+          sed -e "s|^  version \".*\"|  version \"${VERSION}\"|" \
+              -e "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" \
+              Casks/claude-pulse.rb > tap/Casks/claude-pulse.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/claude-pulse.rb
+          git diff --cached --quiet || git commit -m "claude-pulse ${VERSION}"
+          git push

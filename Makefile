@@ -3,7 +3,7 @@ BUILD_DIR := build
 APP_PATH := $(BUILD_DIR)/Build/Products/Release/$(APP).app
 INSTALL_DIR := /Applications
 
-.PHONY: install build gen run clean screenshots
+.PHONY: install build gen run clean screenshots dmg
 
 # Full install (deps check + build + copy to /Applications + launch).
 install:
@@ -25,5 +25,14 @@ run: build
 screenshots: build
 	"$(APP_PATH)/Contents/MacOS/$(APP)" --render-docs "$(PWD)/docs/images"
 
+# Local drag-&-drop DMG (ad-hoc signed — for layout testing; releases come from CI).
+dmg: build
+	rm -rf dist/dmg-stage dist/ClaudePulse-dev.dmg
+	mkdir -p dist/dmg-stage
+	ditto "$(APP_PATH)" "dist/dmg-stage/$(APP).app"
+	create-dmg --volname "Claude Pulse" --window-pos 200 120 --window-size 580 360 \
+		--icon-size 128 --icon "$(APP).app" 150 170 --app-drop-link 430 170 \
+		--hide-extension "$(APP).app" dist/ClaudePulse-dev.dmg dist/dmg-stage
+
 clean:
-	rm -rf $(BUILD_DIR) $(APP).xcodeproj
+	rm -rf $(BUILD_DIR) dist $(APP).xcodeproj
