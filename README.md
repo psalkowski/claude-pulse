@@ -108,8 +108,9 @@ Usage" → add the small or medium size.
 ## How it works
 
 - **Accounts** are discovered from each logged-in `~/.claude*/.claude.json` (plaintext,
-  no Keychain). Subscriptions are listed in a stable order — personal plans first, then
-  team — every launch.
+  no Keychain), falling back to `~/.claude.json` for the default `~/.claude` dir — the
+  state-file location of a stock install without `CLAUDE_CONFIG_DIR`. Subscriptions are
+  listed in a stable order — personal plans first, then team — every launch.
 - **Labels** (plan tier, org name, seat) are read from those same files.
 - **Usage** comes from the `anthropic-ratelimit-unified-*` headers on a tiny 1-token
   `/v1/messages` request — the same data Claude Code uses for its statusline.

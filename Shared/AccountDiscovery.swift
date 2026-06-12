@@ -90,7 +90,27 @@ enum AccountDiscovery {
     }
 
     private static func parse(_ configDir: URL) -> (uuid: String, profile: AccountProfile)? {
-        let stateFile = configDir.appendingPathComponent(".claude.json")
+        for stateFile in stateFileCandidates(for: configDir) {
+            if let parsed = parse(stateFile: stateFile) { return parsed }
+        }
+        return nil
+    }
+
+    // With CLAUDE_CONFIG_DIR set, Claude Code keeps its state file inside the
+    // config dir. A stock install (no CLAUDE_CONFIG_DIR) uses ~/.claude as the
+    // config dir but writes the state file to ~/.claude.json in the home root,
+    // so the default dir gets that as a fallback.
+    private static func stateFileCandidates(for configDir: URL) -> [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let defaultDir = home.appendingPathComponent(".claude", isDirectory: true)
+        var candidates = [configDir.appendingPathComponent(".claude.json")]
+        if configDir.standardizedFileURL == defaultDir.standardizedFileURL {
+            candidates.append(home.appendingPathComponent(".claude.json"))
+        }
+        return candidates
+    }
+
+    private static func parse(stateFile: URL) -> (uuid: String, profile: AccountProfile)? {
         guard let data = try? Data(contentsOf: stateFile),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let account = root["oauthAccount"] as? [String: Any],
