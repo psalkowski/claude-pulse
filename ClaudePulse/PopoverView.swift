@@ -71,6 +71,13 @@ private struct SettingsMenu: View {
     @AppStorage(UsagePoller.keepAliveKey) private var keepSessionsActive = false
     @ObservedObject private var updater = AppUpdater.shared
 
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(short) (\(build))"
+    }
+
     var body: some View {
         Menu {
             if !poller.snapshot.accounts.isEmpty {
@@ -87,6 +94,7 @@ private struct SettingsMenu: View {
             Toggle("Keep sessions active", isOn: $keepSessionsActive)
             Toggle("Launch at Login", isOn: $launchAtLogin)
             Divider()
+            Text("Version \(appVersion)")
             Button("Check for Updates…") { updater.checkForUpdates() }
                 .disabled(!updater.canCheckForUpdates)
             Button("Quit Claude Pulse") { NSApp.terminate(nil) }
