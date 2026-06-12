@@ -45,17 +45,19 @@ Gatekeeper asks for a one-time confirmation on first launch — see [Install](#i
 
 ## Install
 
-### Homebrew (recommended)
+### Homebrew
 
 ```sh
-HOMEBREW_CASK_OPTS=--no-quarantine brew install --cask psalkowski/tap/claude-pulse
+brew install --cask psalkowski/tap/claude-pulse
+xattr -dr com.apple.quarantine /Applications/ClaudePulse.app
 ```
 
-Skipping quarantine lets the app launch right away. Claude Pulse is ad-hoc signed
-(free — no paid Apple Developer account), so a quarantined install would be blocked
-by Gatekeeper on first launch; the [direct-download](#direct-download-dmg) steps
-show the one-time bypass. (On Homebrew ≤ 5, `brew install --cask --no-quarantine …`
-also works; Homebrew 6 removed the flag in favour of the environment variable.)
+Claude Pulse is ad-hoc signed (free — no paid Apple Developer account), so
+Gatekeeper blocks the first launch of any quarantined copy. Homebrew always
+quarantines casks — as of Homebrew 6 neither `--no-quarantine` nor
+`HOMEBREW_CASK_OPTS` disables it — so the second line clears the flag once and
+the app opens normally afterwards. (If you skip it, you can still allow the app
+via System Settings → Privacy & Security → Open Anyway on first launch.)
 
 ### Direct download (.dmg)
 
@@ -161,8 +163,9 @@ documented in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Notes
 
-- Ad-hoc signed (no paid Apple Developer account): Gatekeeper asks for a one-time
-  confirmation on first launch of a downloaded copy (`--no-quarantine` skips even
-  that via Homebrew); Sparkle updates never re-trigger it.
+- Ad-hoc signed (no paid Apple Developer account): Gatekeeper blocks the first
+  launch of a downloaded copy until you clear quarantine (`xattr -dr
+  com.apple.quarantine …`) or pick *Open Anyway*; Sparkle updates never
+  re-trigger it.
 - The request mimics Claude Code (`User-Agent: claude-cli/...`, `anthropic-beta:
   oauth-2025-04-20`) — required, or the endpoint rate-limits aggressively.
