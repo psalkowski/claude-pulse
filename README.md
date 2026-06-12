@@ -32,26 +32,29 @@ Popover (click the menubar icon) and the medium widget:
 
 ## Requirements
 
-| Need | Why | Auto-installed? |
-|------|-----|-----------------|
-| macOS 14 (Sonoma) or newer | WidgetKit + `MenuBarExtra` | — |
-| **Xcode** (full app, from the App Store) | Builds the app + widget extension | no (App Store) |
-| **XcodeGen** | Generates the Xcode project from `project.yml` | yes, via Homebrew |
-| One or more logged-in Claude Code subscriptions | Source of the accounts | — |
-| `jq` | Only for the optional `scripts/` helpers | optional |
+| Need | Why |
+|------|-----|
+| macOS 14 (Sonoma) or newer | WidgetKit + `MenuBarExtra` |
+| Apple Silicon | Release binaries are arm64-only (Intel: [build from source](#development--build-from-source)) |
+| One or more logged-in Claude Code subscriptions | Source of the accounts |
 
-No Apple Developer account, paid membership, or signing certificate is needed — the app
-is ad-hoc signed and runs locally.
+No Apple Developer account, paid membership, or signing certificate is involved — the
+app is ad-hoc signed.
 
 ## Install
 
-```sh
-git clone <this-repo> claude-pulse && cd claude-pulse
-./install.sh
-```
+1. Download the latest `ClaudePulse-*.zip` from
+   [Releases](https://github.com/psalkowski/claude-pulse/releases/latest) and unzip it.
+2. **Move `ClaudePulse.app` to `/Applications`** — required; running it from
+   `~/Downloads` would let macOS "translocate" it to a read-only location and break
+   auto-updates.
+3. First launch only: macOS blocks unsigned downloads. Open **System Settings →
+   Privacy & Security**, scroll down, click **Open Anyway** (or run
+   `xattr -d com.apple.quarantine /Applications/ClaudePulse.app` and open normally).
 
-`install.sh` checks for Xcode, installs XcodeGen via Homebrew if missing, builds, copies
-the app to `/Applications`, and launches it. Re-run it any time to upgrade.
+That's the last manual install: from then on the app **updates itself** — it checks
+GitHub daily, downloads new releases in the background, and relaunches into the new
+version silently. The gear menu's **Check for Updates…** triggers a check on demand.
 
 ## First-time setup (one token per subscription)
 
@@ -104,11 +107,33 @@ reliable trigger.
 - **Show in Menu Bar** — pick which subscriptions appear in the menubar.
 - **Keep sessions active** — poll every subscription regardless of activity.
 - **Launch at Login**.
+- **Check for Updates…** — manual update check (updates also run automatically).
+
+## Development — build from source
+
+| Need | Why | Auto-installed? |
+|------|-----|-----------------|
+| **Xcode** (full app, from the App Store) | Builds the app + widget extension | no (App Store) |
+| **XcodeGen** | Generates the Xcode project from `project.yml` | yes, via Homebrew |
+| `jq` | Only for the optional `scripts/` helpers | optional |
+
+```sh
+git clone <this-repo> claude-pulse && cd claude-pulse
+./install.sh
+```
+
+`install.sh` checks for Xcode, installs XcodeGen via Homebrew if missing, builds, copies
+the app to `/Applications`, and launches it. Versions are stamped from git (latest tag +
+commit count), so a source build behind the newest release will auto-update to the
+release binary, while a build ahead of it is left alone.
+
+Releases are cut by pushing a tag: `git tag v0.X.Y && git push origin v0.X.Y` — GitHub
+Actions builds, signs (Sparkle EdDSA), and publishes the zip + appcast.
 
 ## Notes
 
-- Ad-hoc signed, for local use. macOS may warn the first time you open an app built
-  locally; right-click → Open if so.
+- Ad-hoc signed — macOS warns once on first launch of a downloaded copy (see Install);
+  Sparkle-installed updates never re-trigger Gatekeeper.
 - The request mimics Claude Code (`User-Agent: claude-cli/...`, `anthropic-beta:
   oauth-2025-04-20`) — required, or the endpoint rate-limits aggressively.
 - See [SPEC.md](SPEC.md) for the full design and rationale.

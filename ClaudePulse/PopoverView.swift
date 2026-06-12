@@ -69,6 +69,7 @@ private struct SettingsMenu: View {
     @EnvironmentObject private var settings: MenuBarSettings
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @AppStorage(UsagePoller.keepAliveKey) private var keepSessionsActive = false
+    @ObservedObject private var updater = AppUpdater.shared
 
     var body: some View {
         Menu {
@@ -86,6 +87,8 @@ private struct SettingsMenu: View {
             Toggle("Keep sessions active", isOn: $keepSessionsActive)
             Toggle("Launch at Login", isOn: $launchAtLogin)
             Divider()
+            Button("Check for Updates…") { updater.checkForUpdates() }
+                .disabled(!updater.canCheckForUpdates)
             Button("Quit Claude Pulse") { NSApp.terminate(nil) }
         } label: {
             Image(systemName: "gearshape")

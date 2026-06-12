@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  SPARKLE_VERSION: "2.9.3"
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build (stamped from tag)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BUILD_NUMBER="$(git rev-list --count HEAD)"
+          xcodegen
+          xcodebuild -project ClaudePulse.xcodeproj -scheme ClaudePulse \
+            -configuration Release -derivedDataPath build \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            build
+
+      - name: Sign and archive
+        run: |
+          APP="build/Build/Products/Release/ClaudePulse.app"
+          codesign --force --deep -s - "$APP"
+          mkdir dist
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "dist/ClaudePulse-${GITHUB_REF_NAME#v}.zip"
+
+      - name: Generate signed appcast
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          curl -sL -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          mkdir sparkle-dist && tar -xf sparkle.tar.xz -C sparkle-dist
+          echo "$SPARKLE_ED_PRIVATE_KEY" | ./sparkle-dist/bin/generate_appcast \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
+            --maximum-versions 1 \
+            -o dist/appcast.xml dist
+
+      - name: Publish release (zip + appcast atomically)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/ClaudePulse-${GITHUB_REF_NAME#v}.zip" dist/appcast.xml \
+            --title "Claude Pulse ${GITHUB_REF_NAME}" --generate-notes
