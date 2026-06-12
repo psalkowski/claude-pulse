@@ -1,5 +1,7 @@
 # Claude Pulse
 
+[![Latest release](https://img.shields.io/github/v/release/psalkowski/claude-pulse)](https://github.com/psalkowski/claude-pulse/releases/latest)
+
 A native macOS **menubar app + widget** that shows your Claude Code usage limits —
 the 5-hour session and weekly windows, with reset times — for **every** Claude Code
 subscription on your machine at once (e.g. a personal Max account and a Team account).
