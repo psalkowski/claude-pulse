@@ -67,8 +67,11 @@ Lets the release workflow push an updated cask to your tap. Without it, the
 Users then install with:
 
 ```sh
-brew install --cask --no-quarantine psalkowski/tap/claude-pulse
+HOMEBREW_CASK_OPTS=--no-quarantine brew install --cask psalkowski/tap/claude-pulse
 ```
+
+(Homebrew 6 removed the `--no-quarantine` CLI flag; the env var works on all
+versions, and on Homebrew ≤ 5 the flag can still be passed directly.)
 
 The canonical cask lives in [`Casks/claude-pulse.rb`](../Casks/claude-pulse.rb)
 (the `version`/`sha256` placeholders are seeds — CI patches them per release).

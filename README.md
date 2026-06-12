@@ -48,13 +48,14 @@ Gatekeeper asks for a one-time confirmation on first launch — see [Install](#i
 ### Homebrew (recommended)
 
 ```sh
-brew install --cask --no-quarantine psalkowski/tap/claude-pulse
+HOMEBREW_CASK_OPTS=--no-quarantine brew install --cask psalkowski/tap/claude-pulse
 ```
 
-`--no-quarantine` lets the app launch right away. Claude Pulse is ad-hoc signed
-(free — no paid Apple Developer account), so without that flag Gatekeeper would
-block the first launch; the [direct-download](#direct-download-dmg) steps show the
-one-time bypass.
+Skipping quarantine lets the app launch right away. Claude Pulse is ad-hoc signed
+(free — no paid Apple Developer account), so a quarantined install would be blocked
+by Gatekeeper on first launch; the [direct-download](#direct-download-dmg) steps
+show the one-time bypass. (On Homebrew ≤ 5, `brew install --cask --no-quarantine …`
+also works; Homebrew 6 removed the flag in favour of the environment variable.)
 
 ### Direct download (.dmg)
 
