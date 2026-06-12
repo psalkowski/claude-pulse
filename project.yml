@@ -39,6 +39,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.claudepulse.app
         PRODUCT_NAME: ClaudePulse
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - target: ClaudePulseWidget
         embed: true

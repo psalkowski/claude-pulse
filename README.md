@@ -1,3 +1,7 @@
+<p align="center">
+  <img src=".github/social-preview.png" alt="Claude Pulse — Claude Code usage limits in your menubar + widget" width="800">
+</p>
+
 # Claude Pulse
 
 [![Latest release](https://img.shields.io/github/v/release/psalkowski/claude-pulse)](https://github.com/psalkowski/claude-pulse/releases/latest)
@@ -16,6 +20,9 @@ password prompt.
   Sonnet/Opus when available, each with a progress bar and reset time.
 - **Widget:** small (first subscription) or medium (all) for your desktop / Notification
   Center.
+- **Keep sessions active:** optionally poll every subscription on a schedule to keep a
+  5-hour window warm — or trigger one from `cron` with `scripts/ping-session.sh`
+  ([details](#optional-keep-a-session-warm-from-a-cron-job)).
 
 ## Screenshots
 

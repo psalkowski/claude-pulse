@@ -5,3 +5,5 @@ ClaudePulse.xcodeproj/
 CLAUDE.local.md
 .claude/settings.local.json
 .idea/
+
+.superpowers/

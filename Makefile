@@ -3,7 +3,7 @@ BUILD_DIR := build
 APP_PATH := $(BUILD_DIR)/Build/Products/Release/$(APP).app
 INSTALL_DIR := /Applications
 
-.PHONY: install build gen run clean screenshots dmg
+.PHONY: install build gen run clean screenshots dmg appicon
 
 # Full install (deps check + build + copy to /Applications + launch).
 install:
@@ -24,6 +24,10 @@ run: build
 # Regenerate the README images from the app's own views (anonymized sample data).
 screenshots: build
 	"$(APP_PATH)/Contents/MacOS/$(APP)" --render-docs "$(PWD)/docs/images"
+
+# Regenerate the app-icon PNGs and GitHub brand mark from Branding/*.svg.
+appicon:
+	./scripts/make-appicon.sh
 
 # Local drag-&-drop DMG (ad-hoc signed — for layout testing; releases come from CI).
 dmg: build
