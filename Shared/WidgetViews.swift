@@ -123,9 +123,11 @@ private struct WindowGauge: View {
                 Text(title)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                Text(UsageFormat.shortResetText(window.resetsAt))
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
+                TimelineView(.everyMinute) { context in
+                    Text(UsageFormat.shortResetText(window.resetsAt, now: context.date))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 Text("\(Int(window.utilization.rounded()))%")
                     .font(.caption2.bold().monospacedDigit())

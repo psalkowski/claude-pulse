@@ -233,9 +233,13 @@ private struct UsageRow: View {
                     .foregroundStyle(.secondary)
             }
             UsageBar(fraction: window.utilization / 100, color: UsageFormat.color(window.utilization))
-            Text(UsageFormat.resetText(window.resetsAt))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            // A stable window value never re-evaluates the row, so a plain Text would
+            // freeze the countdown; TimelineView ticks the clock to recompute it.
+            TimelineView(.everyMinute) { context in
+                Text(UsageFormat.resetText(window.resetsAt, now: context.date))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
