@@ -33,20 +33,50 @@ enum UsageClientError: LocalizedError {
 struct UsageClient {
     static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
     static let userAgent = "claude-cli/2.1.173 (external, cli)"
+    static let haikuModel = "claude-haiku-4-5-20251001"
+    static let sonnetModel = "claude-sonnet-4-6"
 
-    // Sonnet first: its response also carries the Sonnet-specific weekly window
-    // (7d_sonnet). But Sonnet is burst-throttled more aggressively than Haiku —
-    // it can 429 with NO usage headers even when the account has headroom — so
-    // when Sonnet yields nothing usable we fall back to Haiku for the 5h/7d
-    // windows (the Sonnet row then keeps its previous value upstream).
+    // Haiku is the primary, reliable source for the shared windows (5h / 7d /
+    // 7d_opus): Haiku and Opus draw on one session + weekly pool, and Haiku
+    // isn't burst-throttled. Sonnet is a secondary best-effort call purely for
+    // its own separate weekly window (7d_sonnet) — it 429s often, and when it
+    // does the caller keeps the last-known Sonnet value. Each window is taken
+    // from exactly one model, so "Current session" always reflects the shared
+    // 5h window and never Sonnet's separate one.
     func fetch(accessToken: String) async throws -> UsageReport {
-        do {
-            return try await fetch(accessToken: accessToken, model: "claude-sonnet-4-6")
-        } catch UsageClientError.unauthorized {
+        async let haiku = fetchReport(accessToken: accessToken, model: Self.haikuModel)
+        async let sonnet = fetchReport(accessToken: accessToken, model: Self.sonnetModel)
+        let haikuResult = await haiku
+        let sonnetResult = await sonnet
+
+        // A rejected token must surface as unauthorized, not an empty report.
+        if case .failure(UsageClientError.unauthorized) = haikuResult {
             throw UsageClientError.unauthorized
-        } catch {
-            return try await fetch(accessToken: accessToken, model: "claude-haiku-4-5-20251001")
         }
+
+        var report = UsageReport()
+        if case .success(let r) = haikuResult {
+            report.fiveHour = r.fiveHour
+            report.sevenDay = r.sevenDay
+            report.sevenDayOpus = r.sevenDayOpus
+        }
+        if case .success(let r) = sonnetResult {
+            report.sevenDaySonnet = r.sevenDaySonnet
+        }
+
+        // Both calls came back empty → propagate the primary error so the row
+        // shows it instead of silently masking a total failure.
+        if report.fiveHour == nil, report.sevenDay == nil,
+           report.sevenDayOpus == nil, report.sevenDaySonnet == nil,
+           case .failure(let error) = haikuResult {
+            throw error
+        }
+        return report
+    }
+
+    private func fetchReport(accessToken: String, model: String) async -> Result<UsageReport, Error> {
+        do { return .success(try await fetch(accessToken: accessToken, model: model)) }
+        catch { return .failure(error) }
     }
 
     private func fetch(accessToken: String, model: String) async throws -> UsageReport {

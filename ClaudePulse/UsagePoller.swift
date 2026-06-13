@@ -113,6 +113,10 @@ final class UsagePoller: ObservableObject {
         guard shouldFetch, let token else { return usage }
         do {
             let report = try await client.fetch(accessToken: token)
+            // Each window updates only if this fetch actually returned it;
+            // otherwise it keeps the last-known value. Haiku owns 5h/7d/7d_opus,
+            // Sonnet owns 7d_sonnet, so a failure on either side leaves the
+            // other's rows untouched (last available data) — never fabricated.
             usage.fiveHour = report.fiveHour ?? usage.fiveHour
             usage.sevenDay = report.sevenDay ?? usage.sevenDay
             usage.sevenDayOpus = report.sevenDayOpus ?? usage.sevenDayOpus
