@@ -108,7 +108,7 @@ final class UsagePoller: ObservableObject {
             sevenDaySonnet: rolled(previous?.sevenDaySonnet),
             pingError: nil,
             needsToken: token == nil,
-            configDir: account.configDir.path
+            configDir: account.configDir?.path
         )
         guard shouldFetch, let token else { return usage }
         do {

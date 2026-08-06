@@ -22,12 +22,14 @@ struct PopoverView: View {
     }
 
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("No Claude Code accounts found")
                 .font(.headline)
-            Text("Sign in with Claude Code first (a logged-in ~/.claude or ~/.claude-team), then reopen Claude Pulse.")
+            Text("Claude Pulse looks for logged-in config dirs under your home folder (~/.claude, ~/.claude-team, ~/.config/…). If a subscription lives somewhere else, add it by hand.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            AddSubscriptionMenu(prominent: true)
         }
     }
 
@@ -59,8 +61,77 @@ struct PopoverView: View {
             }
             .buttonStyle(.borderless)
             .help("Refresh now (makes a request, starting a session)")
+            AddSubscriptionMenu()
             SettingsMenu()
         }
+    }
+}
+
+// Discovery can only see config dirs it's allowed to look at, and a bare token
+// can't be traced back to a subscription — so both escape hatches live here.
+private struct AddSubscriptionMenu: View {
+    var prominent = false
+    @EnvironmentObject private var poller: UsagePoller
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Menu {
+            Button("Add config folder…") { pickConfigFolder() }
+            Button("Add subscription token…") {
+                openWindow(id: "token-entry", value: TokenEntryWindow.newAccountValue)
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            let userAdded = ManualAccountStore.load().configDirs
+            if !userAdded.isEmpty {
+                Divider()
+                Section("Added folders") {
+                    ForEach(userAdded, id: \.self) { path in
+                        Button("Forget \(URL(fileURLWithPath: path).lastPathComponent)") {
+                            ManualAccountStore.removeConfigDir(path)
+                            poller.refresh()
+                        }
+                    }
+                }
+            }
+        } label: {
+            if prominent {
+                Label("Add subscription", systemImage: "plus")
+            } else {
+                Image(systemName: "plus")
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Add a subscription Claude Pulse didn't find")
+    }
+
+    // Picking the folder is also what grants access to it: a folder chosen in an
+    // open panel is readable even where an unprompted scan would trip TCC.
+    private func pickConfigFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.showsHiddenFiles = true
+        panel.prompt = "Add"
+        panel.message = "Pick the Claude Code config folder for that subscription — the folder holding its .claude.json (the value of CLAUDE_CONFIG_DIR)."
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        guard AccountDiscovery.holdsAccount(url) else {
+            // The popover has already dismissed itself behind the panel, so a
+            // SwiftUI .alert on this view would never appear.
+            let alert = NSAlert()
+            alert.messageText = "No signed-in account in that folder"
+            alert.informativeText = "\(url.path) has no .claude.json with a logged-in account. Pick the folder Claude Code writes its state to, or use “Add subscription token…” instead."
+            alert.alertStyle = .warning
+            alert.runModal()
+            return
+        }
+        ManualAccountStore.addConfigDir(url)
+        poller.refresh(force: true)
     }
 }
 
@@ -178,7 +249,9 @@ private struct AccountCard: View {
                 UsageRow(title: "Weekly · Sonnet", window: window)
             }
         } else {
-            Text("No data yet — open Claude Code in this subscription to load usage.")
+            Text(ManualAccountStore.isTokenAccount(account.id)
+                 ? "No data yet — hit Refresh to load usage for this subscription."
+                 : "No data yet — open Claude Code in this subscription to load usage.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -190,6 +263,20 @@ private struct AccountCard: View {
             if !account.needsToken {
                 Button("Remove token", role: .destructive) {
                     TokenStore.remove(for: account.id)
+                    poller.refresh()
+                }
+            }
+            if ManualAccountStore.isTokenAccount(account.id) {
+                Divider()
+                Button("Remove subscription", role: .destructive) {
+                    TokenStore.remove(for: account.id)
+                    ManualAccountStore.removeTokenAccount(account.id)
+                    poller.refresh()
+                }
+            } else if ManualAccountStore.isUserAdded(configDir: account.configDir) {
+                Divider()
+                Button("Forget this folder", role: .destructive) {
+                    ManualAccountStore.removeConfigDir(account.configDir ?? "")
                     poller.refresh()
                 }
             }

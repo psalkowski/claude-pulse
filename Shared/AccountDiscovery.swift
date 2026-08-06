@@ -8,6 +8,11 @@ struct AccountProfile: Equatable {
     var seatTier: String?
     var hasClaudeMax: Bool
     var hasClaudePro: Bool
+
+    static let unknown = AccountProfile(
+        email: nil, organizationName: nil, organizationType: nil,
+        rateLimitTier: nil, seatTier: nil, hasClaudeMax: false, hasClaudePro: false
+    )
 }
 
 // One Claude Code subscription, discovered from a config dir's plaintext
@@ -18,19 +23,37 @@ struct DiscoveredAccount: Identifiable {
     let id: String              // accountUuid (stable, unique)
     let configDirs: [URL]       // every config dir resolving to this account
     let profile: AccountProfile
+    // Set only for a subscription the user added by hand with a bare token:
+    // no config dir, and no identity we can read — see ManualAccountStore.
+    let manualName: String?
+
+    init(id: String, configDirs: [URL], profile: AccountProfile, manualName: String? = nil) {
+        self.id = id
+        self.configDirs = configDirs
+        self.profile = profile
+        self.manualName = manualName
+    }
+
+    init(manual: ManualTokenAccount) {
+        self.init(id: manual.id, configDirs: [], profile: .unknown, manualName: manual.name)
+    }
 
     // The dir to reference in the setup-token instructions: the canonical
-    // ~/.claude if present, otherwise the shortest path.
-    var configDir: URL {
+    // ~/.claude if present, otherwise the shortest path. nil for a manually
+    // added token — that subscription has no config dir here at all.
+    var configDir: URL? {
         let defaultDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude", isDirectory: true)
         if configDirs.contains(where: { $0.standardizedFileURL == defaultDir.standardizedFileURL }) {
             return defaultDir
         }
-        return configDirs.min { $0.path.count < $1.path.count } ?? defaultDir
+        return configDirs.min { $0.path.count < $1.path.count }
     }
 
-    var label: (title: String, detail: String?) { PlanLabel.make(from: profile) }
+    var label: (title: String, detail: String?) {
+        if let manualName { return (manualName, "Added manually") }
+        return PlanLabel.make(from: profile)
+    }
 
     // Most recent activity across all of this account's config dirs — a proxy
     // for "Claude Code is being used in this subscription right now".
@@ -55,26 +78,30 @@ struct DiscoveredAccount: Identifiable {
 }
 
 enum AccountDiscovery {
+    // Every subscription Claude Pulse knows about: the ones it can find on disk,
+    // plus any token-only ones the user added by hand.
     static func all() -> [DiscoveredAccount] {
-        let fm = FileManager.default
-        let home = fm.homeDirectoryForCurrentUser
-        var dirs: [URL] = [home.appendingPathComponent(".claude", isDirectory: true)]
-        if let names = try? fm.contentsOfDirectory(atPath: home.path) {
-            for name in names where name.hasPrefix(".claude") && name != ".claude" {
-                var isDir: ObjCBool = false
-                let url = home.appendingPathComponent(name, isDirectory: true)
-                if fm.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
-                    dirs.append(url)
-                }
-            }
+        var accounts = onDisk()
+        let known = Set(accounts.map(\.id))
+        for manual in ManualAccountStore.load().tokenAccounts where !known.contains(manual.id) {
+            accounts.append(DiscoveredAccount(manual: manual))
         }
+        return accounts
+    }
 
+    // Does this dir hold a logged-in Claude Code state file? Used to reject a
+    // folder the user picks that isn't actually a config dir.
+    static func holdsAccount(_ configDir: URL) -> Bool {
+        parse(configDir) != nil
+    }
+
+    private static func onDisk() -> [DiscoveredAccount] {
         // Group config dirs by the account they hold; multiple dirs can map to
         // one account (e.g. ~/.claude and ~/.claude-team-personal). One account,
         // one token, activity merged across its dirs.
         var byID: [String: (profile: AccountProfile, dirs: [URL])] = [:]
         var order: [String] = []
-        for dir in dirs {
+        for dir in candidateDirs() {
             guard let parsed = parse(dir) else { continue }
             if byID[parsed.uuid] == nil {
                 byID[parsed.uuid] = (parsed.profile, [dir])
@@ -89,11 +116,60 @@ enum AccountDiscovery {
         }
     }
 
-    private static func parse(_ configDir: URL) -> (uuid: String, profile: AccountProfile)? {
-        for stateFile in stateFileCandidates(for: configDir) {
-            if let parsed = parse(stateFile: stateFile) { return parsed }
+    // Everywhere a logged-in config dir plausibly lives. CLAUDE_CONFIG_DIR can
+    // point anywhere, so rather than only matching ~/.claude* names we sweep
+    // every hidden dir under home (plus one level into ~/.config) and let the
+    // state-file parse decide. Visible home dirs are deliberately NOT swept:
+    // touching ~/Documents, ~/Desktop or ~/Downloads — even for a file that
+    // isn't there — trips a macOS TCC prompt. Those are what the explicit
+    // "Add config folder…" picker is for, and picking a folder grants access.
+    private static func candidateDirs() -> [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let defaultDir = home.appendingPathComponent(".claude", isDirectory: true)
+
+        let hidden = subdirectories(of: home).filter { $0.lastPathComponent.hasPrefix(".") }
+        // ~/.claude-team before ~/.other so the conventional names win the
+        // canonical-dir pick when several dirs resolve to one account.
+        let claudeNamed = hidden.filter { $0.lastPathComponent.hasPrefix(".claude") }
+        let otherHidden = hidden.filter { !$0.lastPathComponent.hasPrefix(".claude") }
+        let configChildren = subdirectories(of: home.appendingPathComponent(".config", isDirectory: true))
+
+        var candidates = [defaultDir] + claudeNamed + configChildren + otherHidden
+        if let env = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"], !env.isEmpty {
+            candidates.append(URL(fileURLWithPath: env, isDirectory: true))
         }
-        return nil
+        candidates += ManualAccountStore.configDirs()
+
+        var seen = Set<String>()
+        return candidates.filter { seen.insert($0.standardizedFileURL.path).inserted }
+    }
+
+    private static func subdirectories(of parent: URL) -> [URL] {
+        let fm = FileManager.default
+        guard let names = try? fm.contentsOfDirectory(atPath: parent.path) else { return [] }
+        return names.sorted().compactMap { name in
+            let url = parent.appendingPathComponent(name, isDirectory: true)
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue else { return nil }
+            return url
+        }
+    }
+
+    // A dir can end up with two state files — a stale $CLAUDE_CONFIG_DIR/.claude.json
+    // left over from an old setup next to the live ~/.claude.json — and they can
+    // name different accounts. The most recently written one is the real state;
+    // picking the first candidate would attribute the dir to a dead login.
+    private static func parse(_ configDir: URL) -> (uuid: String, profile: AccountProfile)? {
+        var best: (modified: Date, parsed: (uuid: String, profile: AccountProfile))?
+        for stateFile in stateFileCandidates(for: configDir) {
+            guard let parsed = parse(stateFile: stateFile) else { continue }
+            let modified = (try? stateFile.resourceValues(forKeys: [.contentModificationDateKey])
+                .contentModificationDate) ?? .distantPast
+            if best == nil || modified > best!.modified {
+                best = (modified, parsed)
+            }
+        }
+        return best?.parsed
     }
 
     // With CLAUDE_CONFIG_DIR set, Claude Code keeps its state file inside the
