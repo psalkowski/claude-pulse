@@ -99,8 +99,8 @@ private struct AccountColumn: View {
             if let window = account.sevenDayOpus {
                 WindowGauge(title: "Opus", window: window)
             }
-            if let window = account.sevenDaySonnet {
-                WindowGauge(title: "Sonnet", window: window)
+            if let window = account.sevenDayFable {
+                WindowGauge(title: "Fable", window: window)
             }
             if !account.hasAnyData {
                 Text("No data")

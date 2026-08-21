@@ -16,14 +16,14 @@ struct AccountUsage: Codable, Identifiable, Equatable {
     var fiveHour: UsageWindow?
     var sevenDay: UsageWindow?
     var sevenDayOpus: UsageWindow?
-    var sevenDaySonnet: UsageWindow?
+    var sevenDayFable: UsageWindow?
 
     var pingError: String?
     var needsToken: Bool = false
     var configDir: String? = nil
 
     var hasAnyData: Bool {
-        fiveHour != nil || sevenDay != nil || sevenDayOpus != nil || sevenDaySonnet != nil
+        fiveHour != nil || sevenDay != nil || sevenDayOpus != nil || sevenDayFable != nil
     }
 }
 
@@ -47,7 +47,7 @@ struct UsageSnapshot: Codable, Equatable {
                 fiveHour: UsageWindow(utilization: 28, resetsAt: Date().addingTimeInterval(3 * 3600 + 17 * 60)),
                 sevenDay: UsageWindow(utilization: 23, resetsAt: Date().addingTimeInterval(2.2 * 86400)),
                 sevenDayOpus: nil,
-                sevenDaySonnet: UsageWindow(utilization: 1, resetsAt: Date().addingTimeInterval(2.2 * 86400))
+                sevenDayFable: UsageWindow(utilization: 12, resetsAt: Date().addingTimeInterval(2.2 * 86400))
             ),
             AccountUsage(
                 id: "sample-team",
@@ -60,7 +60,7 @@ struct UsageSnapshot: Codable, Equatable {
                 fiveHour: UsageWindow(utilization: 45, resetsAt: Date().addingTimeInterval(1 * 3600 + 42 * 60)),
                 sevenDay: UsageWindow(utilization: 61, resetsAt: Date().addingTimeInterval(4.5 * 86400)),
                 sevenDayOpus: nil,
-                sevenDaySonnet: nil
+                sevenDayFable: nil
             ),
         ]
     )

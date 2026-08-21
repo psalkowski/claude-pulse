@@ -105,7 +105,7 @@ final class UsagePoller: ObservableObject {
             fiveHour: rolled(previous?.fiveHour),
             sevenDay: rolled(previous?.sevenDay),
             sevenDayOpus: rolled(previous?.sevenDayOpus),
-            sevenDaySonnet: rolled(previous?.sevenDaySonnet),
+            sevenDayFable: rolled(previous?.sevenDayFable),
             pingError: nil,
             needsToken: token == nil,
             configDir: account.configDir?.path
@@ -114,13 +114,12 @@ final class UsagePoller: ObservableObject {
         do {
             let report = try await client.fetch(accessToken: token)
             // Each window updates only if this fetch actually returned it;
-            // otherwise it keeps the last-known value. Haiku owns 5h/7d/7d_opus,
-            // Sonnet owns 7d_sonnet, so a failure on either side leaves the
-            // other's rows untouched (last available data) — never fabricated.
+            // otherwise it keeps the last-known value. The Haiku probe may
+            // include the Fable window; Fable itself is never queried.
             usage.fiveHour = report.fiveHour ?? usage.fiveHour
             usage.sevenDay = report.sevenDay ?? usage.sevenDay
             usage.sevenDayOpus = report.sevenDayOpus ?? usage.sevenDayOpus
-            usage.sevenDaySonnet = report.sevenDaySonnet ?? usage.sevenDaySonnet
+            usage.sevenDayFable = report.sevenDayFable ?? usage.sevenDayFable
             usage.lastSuccessAt = Date()
         } catch {
             usage.fetchError = error.localizedDescription
