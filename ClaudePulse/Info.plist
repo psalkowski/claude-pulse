@@ -20,6 +20,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ClaudePulseReleaseBuild</key>
+	<string>$(CLAUDE_PULSE_RELEASE_BUILD)</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>SUAutomaticallyUpdate</key>
@@ -30,5 +32,7 @@
 	<string>https://github.com/psalkowski/claude-pulse/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>Z7YW103E1PPzc9j+ygwjyFEzpuIiMbtBJ0RRb8kymB4=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>
