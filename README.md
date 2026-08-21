@@ -17,7 +17,7 @@ password prompt.
 - **Menubar:** one ring per subscription with the 5-hour % inside; click for the full
   breakdown.
 - **Popover:** per subscription — Current session, Weekly (all models), and Weekly
-  Sonnet/Opus when available, each with a progress bar and reset time.
+  Fable/Opus when available, each with a progress bar and reset time.
 - **Widget:** small (first subscription) or medium (all) for your desktop / Notification
   Center.
 - **Keep sessions active:** optionally poll every subscription on a schedule to keep a

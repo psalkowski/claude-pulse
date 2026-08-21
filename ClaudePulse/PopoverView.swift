@@ -245,8 +245,8 @@ private struct AccountCard: View {
             if let window = account.sevenDayOpus {
                 UsageRow(title: "Weekly · Opus", window: window)
             }
-            if let window = account.sevenDaySonnet {
-                UsageRow(title: "Weekly · Sonnet", window: window)
+            if let window = account.sevenDayFable {
+                UsageRow(title: "Weekly · Fable", window: window)
             }
         } else {
             Text(ManualAccountStore.isTokenAccount(account.id)
