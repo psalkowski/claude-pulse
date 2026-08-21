@@ -13,6 +13,9 @@ final class AppUpdater: NSObject, ObservableObject {
     private override init() {
         super.init()
         guard !ProcessInfo.processInfo.arguments.contains("--render-docs") else { return }
+        guard Bundle.main.object(forInfoDictionaryKey: "ClaudePulseReleaseBuild") as? Bool == true else {
+            return
+        }
         let controller = SPUStandardUpdaterController(
             startingUpdater: true,
             updaterDelegate: self,

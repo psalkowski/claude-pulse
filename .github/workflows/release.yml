@@ -31,6 +31,7 @@ jobs:
           xcodebuild -project ClaudePulse.xcodeproj -scheme ClaudePulse \
             -configuration Release -derivedDataPath build \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            CLAUDE_PULSE_RELEASE_BUILD=true \
             build
           codesign --force --deep --sign - \
             "build/Build/Products/Release/ClaudePulse.app"

@@ -35,11 +35,14 @@ targets:
         SUPublicEDKey: Z7YW103E1PPzc9j+ygwjyFEzpuIiMbtBJ0RRb8kymB4=
         SUEnableAutomaticChecks: true
         SUAutomaticallyUpdate: true
+        SUScheduledCheckInterval: 86400
+        ClaudePulseReleaseBuild: $(CLAUDE_PULSE_RELEASE_BUILD)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.claudepulse.app
         PRODUCT_NAME: ClaudePulse
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CLAUDE_PULSE_RELEASE_BUILD: false
     dependencies:
       - target: ClaudePulseWidget
         embed: true

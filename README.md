@@ -132,6 +132,8 @@ Usage" → add the small or medium size.
   file times). While you work, the request rides on the already-active session and starts
   nothing; while you're idle it stays quiet and shows the last reading. Turn on **Keep
   sessions active** (gear menu) to poll regardless and deliberately keep a session warm.
+- **Updates:** tagged release builds check daily through Sparkle. Local source builds do
+  not initialize the updater, so they cannot replace an installed release accidentally.
 
 ## Optional: keep a session warm from a cron job
 
