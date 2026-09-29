@@ -110,8 +110,14 @@ Because Claude Pulse never reads the Keychain, you give it a token explicitly �
 3. Run it in a terminal, copy the printed token, paste it in, **Save**.
 
 Tokens are stored in `~/Library/Application Support/ClaudePulse/tokens.json` (mode 0600).
-When one stops working (after ~1 year) the card shows "Token rejected" — generate a new
-one and paste it via the ⋯ menu → *Replace token*.
+When one stops working (after ~1 year, or if it's revoked) the card greys out and says
+whether the token expired, was revoked, or isn't accepted — generate a new one and paste
+it via **Replace token…** on the card.
+
+If a subscription's Claude Code login leaves this Mac (you log in to another account, or
+delete its config folder), its card stays and says it's signed out, as long as the app
+still holds its token. Sign in to it again, or choose **Keep with token only…** to name it
+and keep it as a token-only subscription.
 
 ### Add the widget
 

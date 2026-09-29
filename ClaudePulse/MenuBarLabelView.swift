@@ -22,7 +22,7 @@ struct MenuBarLabelView: View {
             .map {
                 GaugeAnimator.Target(
                     utilization: $0.fiveHour?.utilization,
-                    dimmed: $0.tokenExpired
+                    dimmed: $0.tokenFailure != nil
                 )
             }
     }

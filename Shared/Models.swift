@@ -5,12 +5,25 @@ struct UsageWindow: Codable, Equatable {
     var resetsAt: Date?
 }
 
+// Why Anthropic refused a subscription's usage token, read from the 401 message.
+enum TokenFailure: String, Codable {
+    case expired
+    case revoked
+    case invalid
+}
+
+enum AccountOrigin: String, Codable {
+    case configDir      // signed in to Claude Code in a folder we can read
+    case manual         // kept by hand with just a usage token
+    case signedOut      // we hold its token, but no folder here is signed in to it any more
+}
+
 struct AccountUsage: Codable, Identifiable, Equatable {
     var id: String
     var label: String
     var detail: String?
     var subscriptionType: String?
-    var tokenExpired: Bool
+    var tokenFailure: TokenFailure? = nil
     var fetchError: String?
     var lastSuccessAt: Date?
     var fiveHour: UsageWindow?
@@ -21,6 +34,8 @@ struct AccountUsage: Codable, Identifiable, Equatable {
     var pingError: String?
     var needsToken: Bool = false
     var configDir: String? = nil
+    // Optional so snapshots written before it existed still decode.
+    var origin: AccountOrigin? = nil
 
     var hasAnyData: Bool {
         fiveHour != nil || sevenDay != nil || sevenDayOpus != nil || sevenDayFable != nil
@@ -41,7 +56,6 @@ struct UsageSnapshot: Codable, Equatable {
                 label: "Max 20×",
                 detail: "you@example.com",
                 subscriptionType: "max",
-                tokenExpired: false,
                 fetchError: nil,
                 lastSuccessAt: Date(),
                 fiveHour: UsageWindow(utilization: 28, resetsAt: Date().addingTimeInterval(3 * 3600 + 17 * 60)),
@@ -54,7 +68,6 @@ struct UsageSnapshot: Codable, Equatable {
                 label: "Acme Inc.",
                 detail: "Premium seat · Max 5× limits",
                 subscriptionType: "team",
-                tokenExpired: false,
                 fetchError: nil,
                 lastSuccessAt: Date(),
                 fiveHour: UsageWindow(utilization: 45, resetsAt: Date().addingTimeInterval(1 * 3600 + 42 * 60)),

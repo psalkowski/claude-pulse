@@ -13,7 +13,10 @@ struct TokenEntryWindow: View {
     @State private var name = ""
 
     private var isNew: Bool { accountID == nil || accountID == Self.newAccountValue }
-    private var isManual: Bool { isNew || ManualAccountStore.isTokenAccount(accountID) }
+    // Saving a name turns a signed-out subscription into a kept token-only one.
+    private var isKeepingSignedOut: Bool { account?.origin == .signedOut }
+    private var isManual: Bool { isNew || isKeepingSignedOut || account?.origin == .manual }
+    private var hasConfigDir: Bool { account?.configDir != nil }
 
     private var account: AccountUsage? {
         poller.snapshot.accounts.first { $0.id == accountID }
@@ -31,16 +34,26 @@ struct TokenEntryWindow: View {
     private var canSave: Bool {
         let hasToken = !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasName = !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if isKeepingSignedOut { return hasName }
         return hasToken && (!isNew || hasName)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(isNew ? "Add subscription" : "Usage token — \(account?.label ?? "Subscription")")
+            Text(isNew ? "Add subscription"
+                 : isKeepingSignedOut ? "Keep \(account?.label ?? "subscription") with token only"
+                 : "Usage token — \(account?.label ?? "Subscription")")
                 .font(.headline)
 
             if isNew {
                 Text("For a subscription Claude Pulse can't find on disk. A setup-token carries no readable identity, so give it a name yourself.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if isKeepingSignedOut {
+                Text("No Claude Code config folder on this Mac is signed in to this subscription any more. Name it to keep it with just its usage token. Paste a new token below only if the current one stopped working.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -52,7 +65,7 @@ struct TokenEntryWindow: View {
                     .controlSize(.large)
             }
 
-            Text(isNew
+            Text(isNew || !hasConfigDir
                  ? "Where you're signed in to that subscription, run:"
                  : "In a terminal, run this to generate a long-lived token for this subscription:")
                 .font(.callout)
@@ -78,11 +91,11 @@ struct TokenEntryWindow: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
-            SecureField("sk-ant-oat…", text: $token)
+            SecureField(isKeepingSignedOut ? "sk-ant-oat… (optional — keeps the current token)" : "sk-ant-oat…", text: $token)
                 .textFieldStyle(.roundedBorder)
                 .controlSize(.large)
 
-            if isNew {
+            if isNew || isKeepingSignedOut {
                 Text("Usage for a manually added subscription only refreshes when you hit Refresh, or with “Keep sessions active” on — without a config folder there's no activity to detect.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -101,7 +114,9 @@ struct TokenEntryWindow: View {
         .frame(width: 480)
         .onAppear {
             NSApp.activate(ignoringOtherApps: true)
-            if let accountID, !isNew { name = ManualAccountStore.name(for: accountID) ?? "" }
+            if let accountID, !isNew {
+                name = ManualAccountStore.name(for: accountID) ?? (isKeepingSignedOut ? account?.label ?? "" : "")
+            }
         }
     }
 
@@ -110,6 +125,11 @@ struct TokenEntryWindow: View {
         if isNew {
             let created = ManualAccountStore.addTokenAccount(name: trimmedName)
             TokenStore.set(token, for: created.id)
+        } else if let accountID, isKeepingSignedOut {
+            ManualAccountStore.addTokenAccount(name: trimmedName, id: accountID)
+            if !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                TokenStore.set(token, for: accountID)
+            }
         } else if let accountID {
             if isManual, !trimmedName.isEmpty { ManualAccountStore.rename(accountID, to: trimmedName) }
             TokenStore.set(token, for: accountID)

@@ -5,8 +5,9 @@ import Foundation
 // container, or a config dir we can't reach). A pasted setup-token carries no
 // readable identity — Anthropic rejects it on /api/oauth/profile with
 // "does not meet scope requirement any_of(user:profile, user:office)" — so the
-// display name has to come from the user, and it can't be matched to an
-// accountUuid either.
+// display name has to come from the user. The id is a generated one, or the
+// accountUuid of a subscription whose login left this Mac and that the user
+// chose to keep — so if it's signed in here again, discovery takes it back.
 struct ManualTokenAccount: Codable, Identifiable, Equatable {
     var id: String
     var name: String
@@ -41,10 +42,6 @@ enum ManualAccountStore {
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard let data = try? JSONEncoder().encode(accounts) else { return }
         try? data.write(to: url, options: .atomic)
-    }
-
-    static func isTokenAccount(_ accountID: String?) -> Bool {
-        accountID?.hasPrefix(idPrefix) == true
     }
 
     static func name(for accountID: String) -> String? {
@@ -85,9 +82,10 @@ enum ManualAccountStore {
     // MARK: Token-only accounts
 
     @discardableResult
-    static func addTokenAccount(name: String) -> ManualTokenAccount {
+    static func addTokenAccount(name: String, id: String = ManualAccountStore.idPrefix + UUID().uuidString) -> ManualTokenAccount {
         var accounts = load()
-        let account = ManualTokenAccount(id: idPrefix + UUID().uuidString, name: name)
+        let account = ManualTokenAccount(id: id, name: name)
+        accounts.tokenAccounts.removeAll { $0.id == id }
         accounts.tokenAccounts.append(account)
         save(accounts)
         return account

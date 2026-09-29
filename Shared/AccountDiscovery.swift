@@ -23,19 +23,40 @@ struct DiscoveredAccount: Identifiable {
     let id: String              // accountUuid (stable, unique)
     let configDirs: [URL]       // every config dir resolving to this account
     let profile: AccountProfile
-    // Set only for a subscription the user added by hand with a bare token:
-    // no config dir, and no identity we can read — see ManualAccountStore.
-    let manualName: String?
+    let origin: AccountOrigin
+    // Set only for a subscription with no config dir here, so no identity we
+    // can read: one kept by hand, or one whose login has left this Mac.
+    let fixedLabel: (title: String, detail: String?)?
 
-    init(id: String, configDirs: [URL], profile: AccountProfile, manualName: String? = nil) {
+    init(
+        id: String,
+        configDirs: [URL],
+        profile: AccountProfile,
+        origin: AccountOrigin = .configDir,
+        fixedLabel: (title: String, detail: String?)? = nil
+    ) {
         self.id = id
         self.configDirs = configDirs
         self.profile = profile
-        self.manualName = manualName
+        self.origin = origin
+        self.fixedLabel = fixedLabel
     }
 
     init(manual: ManualTokenAccount) {
-        self.init(id: manual.id, configDirs: [], profile: .unknown, manualName: manual.name)
+        self.init(
+            id: manual.id, configDirs: [], profile: .unknown,
+            origin: .manual, fixedLabel: (manual.name, "Added manually")
+        )
+    }
+
+    // We still hold a token for it, but no config dir is signed in to it any
+    // more (logged out, or the dir was deleted). The token may still work, so
+    // the subscription stays listed under the name it last showed.
+    init(signedOut id: String, lastSeen: AccountUsage?) {
+        var profile = AccountProfile.unknown
+        profile.organizationType = lastSeen?.subscriptionType
+        let label = lastSeen.map { ($0.label, $0.detail) } ?? ("Unnamed subscription", nil)
+        self.init(id: id, configDirs: [], profile: profile, origin: .signedOut, fixedLabel: label)
     }
 
     // The dir to reference in the setup-token instructions: the canonical
@@ -51,7 +72,7 @@ struct DiscoveredAccount: Identifiable {
     }
 
     var label: (title: String, detail: String?) {
-        if let manualName { return (manualName, "Added manually") }
+        if let fixedLabel { return fixedLabel }
         return PlanLabel.make(from: profile)
     }
 

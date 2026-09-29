@@ -34,6 +34,10 @@ enum TokenStore {
         return (token?.isEmpty == false) ? token : nil
     }
 
+    static func accountIDs() -> Set<String> {
+        Set(load().filter { !$0.value.isEmpty }.keys)
+    }
+
     @discardableResult
     static func set(_ token: String, for accountID: String) -> Bool {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
