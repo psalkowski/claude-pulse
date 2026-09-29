@@ -77,7 +77,7 @@ private struct AccountColumn: View {
                     Text(account.label)
                         .font(.caption.bold())
                         .lineLimit(1)
-                    if account.tokenExpired {
+                    if account.tokenFailure != nil {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 8))
                             .foregroundStyle(.orange)

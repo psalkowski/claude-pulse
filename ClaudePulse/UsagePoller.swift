@@ -53,13 +53,20 @@ final class UsagePoller: ObservableObject {
 
     private func performRefresh(force: Bool) async {
         let keepAlive = UserDefaults.standard.bool(forKey: Self.keepAliveKey)
-        let discovered = await Task.detached(priority: .utility) {
+        let onDisk = await Task.detached(priority: .utility) {
             AccountDiscovery.all().map { account -> (DiscoveredAccount, Date?) in
                 (account, account.lastActivity())
             }
         }.value
 
         let previousByID = Dictionary(snapshot.accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let signedOut = TokenStore.accountIDs()
+            .subtracting(onDisk.map(\.0.id))
+            .sorted()
+            .map { id -> (DiscoveredAccount, Date?) in
+                (DiscoveredAccount(signedOut: id, lastSeen: previousByID[id]), nil)
+            }
+        let discovered = onDisk + signedOut
         var results: [AccountUsage] = []
 
         await withTaskGroup(of: AccountUsage.self) { group in
@@ -99,7 +106,8 @@ final class UsagePoller: ObservableObject {
             label: label.title,
             detail: label.detail,
             subscriptionType: account.profile.organizationType,
-            tokenExpired: false,
+            // Polls that don't fetch must keep the last verdict on the token.
+            tokenFailure: token == nil ? nil : previous?.tokenFailure,
             fetchError: nil,
             lastSuccessAt: previous?.lastSuccessAt,
             fiveHour: rolled(previous?.fiveHour),
@@ -108,7 +116,8 @@ final class UsagePoller: ObservableObject {
             sevenDayFable: rolled(previous?.sevenDayFable),
             pingError: nil,
             needsToken: token == nil,
-            configDir: account.configDir?.path
+            configDir: account.configDir?.path,
+            origin: account.origin
         )
         guard shouldFetch, let token else { return usage }
         do {
@@ -121,9 +130,11 @@ final class UsagePoller: ObservableObject {
             usage.sevenDayOpus = report.sevenDayOpus ?? usage.sevenDayOpus
             usage.sevenDayFable = report.sevenDayFable ?? usage.sevenDayFable
             usage.lastSuccessAt = Date()
+            usage.tokenFailure = nil
+        } catch UsageClientError.unauthorized(let failure) {
+            usage.tokenFailure = failure
         } catch {
             usage.fetchError = error.localizedDescription
-            if case UsageClientError.unauthorized = error { usage.tokenExpired = true }
         }
         return usage
     }

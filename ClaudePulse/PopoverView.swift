@@ -203,6 +203,8 @@ private struct AccountCard: View {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    private var tokenFailed: Bool { account.tokenFailure != nil }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 8) {
@@ -215,14 +217,51 @@ private struct AccountCard: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .greyedOut(tokenFailed)
                 Spacer()
                 statusBadge
                 if !chromeless { tokenMenu }
             }
+            if let failure = account.tokenFailure {
+                tokenFailureNotice(failure)
+            }
+            if account.origin == .signedOut {
+                signedOutNotice
+            }
             content
+                .greyedOut(tokenFailed)
         }
         .padding(10)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func tokenFailureNotice(_ failure: TokenFailure) -> some View {
+        let (title, reason): (String, String) = switch failure {
+        case .expired: ("Usage token expired", "Tokens from `claude setup-token` last about a year.")
+        case .revoked: ("Usage token revoked", "Anthropic reports this token was revoked.")
+        case .invalid: ("Usage token not accepted", "Anthropic doesn't recognize this token.")
+        }
+        return CredentialNotice(
+            icon: "key.slash",
+            tint: .orange,
+            title: title,
+            message: "\(reason) The numbers below are from the last successful update. Generate a new token and paste it in.",
+            action: "Replace token…",
+            perform: editToken
+        )
+    }
+
+    private var signedOutNotice: some View {
+        CredentialNotice(
+            icon: "person.crop.circle.badge.xmark",
+            tint: .secondary,
+            title: "Signed out of Claude Code on this Mac",
+            message: tokenFailed
+                ? "No config folder here is signed in to this subscription. Sign in to it again in Claude Code, or keep it with a new usage token."
+                : "No config folder here is signed in to this subscription, but its usage token still works. Sign in to it again in Claude Code, or keep it with just the token.",
+            action: "Keep with token only…",
+            perform: editToken
+        )
     }
 
     @ViewBuilder
@@ -237,19 +276,19 @@ private struct AccountCard: View {
             .controlSize(.small)
         } else if account.hasAnyData {
             if let window = account.fiveHour {
-                UsageRow(title: "Current session", window: window)
+                UsageRow(title: "Current session", window: window, muted: tokenFailed)
             }
             if let window = account.sevenDay {
-                UsageRow(title: "Weekly · All models", window: window)
+                UsageRow(title: "Weekly · All models", window: window, muted: tokenFailed)
             }
             if let window = account.sevenDayOpus {
-                UsageRow(title: "Weekly · Opus", window: window)
+                UsageRow(title: "Weekly · Opus", window: window, muted: tokenFailed)
             }
             if let window = account.sevenDayFable {
-                UsageRow(title: "Weekly · Fable", window: window)
+                UsageRow(title: "Weekly · Fable", window: window, muted: tokenFailed)
             }
         } else {
-            Text(ManualAccountStore.isTokenAccount(account.id)
+            Text(account.configDir == nil
                  ? "No data yet — hit Refresh to load usage for this subscription."
                  : "No data yet — open Claude Code in this subscription to load usage.")
                 .font(.caption)
@@ -266,7 +305,7 @@ private struct AccountCard: View {
                     poller.refresh()
                 }
             }
-            if ManualAccountStore.isTokenAccount(account.id) {
+            if account.origin == .manual {
                 Divider()
                 Button("Remove subscription", role: .destructive) {
                     TokenStore.remove(for: account.id)
@@ -291,12 +330,7 @@ private struct AccountCard: View {
 
     @ViewBuilder
     private var statusBadge: some View {
-        if account.tokenExpired {
-            Label("Token rejected", systemImage: "exclamationmark.triangle.fill")
-                .font(.caption2)
-                .foregroundStyle(.orange)
-                .labelStyle(.titleAndIcon)
-        } else if let error = account.fetchError {
+        if let error = account.fetchError {
             Label(error, systemImage: "wifi.exclamationmark")
                 .font(.caption2)
                 .foregroundStyle(.red)
@@ -305,9 +339,55 @@ private struct AccountCard: View {
     }
 }
 
+private struct CredentialNotice: View {
+    let icon: String
+    let tint: Color
+    let title: String
+    let message: LocalizedStringKey
+    let action: String
+    let perform: () -> Void
+
+    init(icon: String, tint: Color, title: String, message: String, action: String, perform: @escaping () -> Void) {
+        self.icon = icon
+        self.tint = tint
+        self.title = title
+        // Markdown, so `claude setup-token` renders as code.
+        self.message = LocalizedStringKey(message)
+        self.action = action
+        self.perform = perform
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon)
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(action, action: perform)
+                    .controlSize(.small)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+private extension View {
+    func greyedOut(_ greyed: Bool) -> some View {
+        opacity(greyed ? 0.45 : 1)
+    }
+}
+
 private struct UsageRow: View {
     let title: String
     let window: UsageWindow
+    var muted = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -319,7 +399,7 @@ private struct UsageRow: View {
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
-            UsageBar(fraction: window.utilization / 100, color: UsageFormat.color(window.utilization))
+            UsageBar(fraction: window.utilization / 100, color: muted ? .gray : UsageFormat.color(window.utilization))
             // A stable window value never re-evaluates the row, so a plain Text would
             // freeze the countdown; TimelineView ticks the clock to recompute it.
             TimelineView(.everyMinute) { context in

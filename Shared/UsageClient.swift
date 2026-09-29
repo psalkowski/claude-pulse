@@ -8,7 +8,7 @@ struct UsageReport {
 }
 
 enum UsageClientError: LocalizedError {
-    case unauthorized
+    case unauthorized(TokenFailure)
     case rateLimited
     case http(Int)
     case invalidResponse
@@ -16,7 +16,7 @@ enum UsageClientError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unauthorized: return "Token rejected — re-add it"
+        case .unauthorized(let failure): return "Token \(failure.rawValue) — replace it"
         case .rateLimited: return "Rate limited (429)"
         case .http(let code): return "HTTP \(code)"
         case .invalidResponse: return "Invalid response"
@@ -60,7 +60,7 @@ struct UsageClient {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw UsageClientError.invalidResponse }
 
         // Read the usage headers regardless of status — a 429 (limit reached)
@@ -79,11 +79,24 @@ struct UsageClient {
         }
 
         switch http.statusCode {
-        case 401, 403: throw UsageClientError.unauthorized
+        case 401, 403: throw UsageClientError.unauthorized(Self.tokenFailure(fromErrorBody: data))
         case 429: throw UsageClientError.rateLimited
         case 200: throw UsageClientError.noUsageHeaders
         default: throw UsageClientError.http(http.statusCode)
         }
+    }
+
+    // Same patterns Claude Code matches on these messages. Anything else —
+    // "OAuth access token is invalid.", "Invalid bearer token" — is invalid.
+    static func tokenFailure(fromErrorBody data: Data) -> TokenFailure {
+        let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let message = (root?["error"] as? [String: Any])?["message"] as? String ?? ""
+        func matches(_ pattern: String) -> Bool {
+            message.range(of: pattern, options: .regularExpression) != nil
+        }
+        if matches(#"^OAuth (?:access )?token has expired\b"#) { return .expired }
+        if matches(#"^OAuth (?:access )?token has been revoked\b"#) { return .revoked }
+        return .invalid
     }
 
     private func window(from http: HTTPURLResponse, prefix: String) -> UsageWindow? {
