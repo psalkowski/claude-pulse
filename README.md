@@ -27,6 +27,26 @@ password prompt.
   5-hour window warm — or trigger one from `cron` with `scripts/ping-session.sh`
   ([details](#optional-keep-a-session-warm-from-a-cron-job)).
 
+## Will I hit the limit?
+
+![Forecast](docs/images/forecast.png)
+
+Every bar in the popover answers that before it happens:
+
+- **Solid** is what you've used, **faded** is where you'll likely be when the window
+  resets, and the **vertical line** marks how much of the window has passed. A red mark
+  at the right edge means the forecast runs past 100%.
+- Under the bar: the projected usage at reset — or, if you're on track to run out,
+  roughly when (**Hits 100% ~Sun 04:19**).
+- The status line says **On pace**, **At risk** or **Likely to hit**, with what to do
+  about it: **Use ~65% less**, **or pause ~3h**, or how much room you have to spare.
+
+It learns your own rhythm — which hours of which weekdays you usually use Claude — from
+the readings Pulse collects, so it also sees usage from claude.ai and other machines
+while a 5-hour window is open, not just Claude Code on this Mac. Until it has two days of readings it starts from your
+Claude Code transcript history, or from your current pace. Details in
+[How it works](#how-it-works).
+
 ## Screenshots
 
 Menubar:
