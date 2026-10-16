@@ -21,4 +21,9 @@ enum FetchPolicy {
         else { return false }
         return inputs.lastAttemptAt.map { now.timeIntervalSince($0) >= idleInterval } ?? true
     }
+
+    static func shouldRead(force: Bool, isActive: Bool, lastAttemptAt: Date?, now: Date) -> Bool {
+        if force || isActive { return true }
+        return lastAttemptAt.map { now.timeIntervalSince($0) >= idleInterval } ?? true
+    }
 }

@@ -1,10 +1,12 @@
 import Foundation
 
 enum SnapshotStore {
+    static var directory: URL {
+        realHomeDirectory().appendingPathComponent("Library/Application Support/ClaudePulse", isDirectory: true)
+    }
+
     static var fileURL: URL {
-        realHomeDirectory()
-            .appendingPathComponent("Library/Application Support/ClaudePulse", isDirectory: true)
-            .appendingPathComponent("usage-snapshot.json")
+        directory.appendingPathComponent("usage-snapshot.json")
     }
 
     static func load() -> UsageSnapshot? {
@@ -12,6 +14,12 @@ enum SnapshotStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try? decoder.decode(UsageSnapshot.self, from: data)
+    }
+
+    static func update(_ change: (inout UsageSnapshot) -> Void) {
+        guard var snapshot = load() else { return }
+        change(&snapshot)
+        save(snapshot)
     }
 
     static func save(_ snapshot: UsageSnapshot) {

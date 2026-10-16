@@ -1,7 +1,5 @@
 import Foundation
 
-typealias AccountForecasts = [UsageWindowKind: UsageForecast]
-
 @MainActor
 final class UsageHistoryStore {
     static let seedRefreshInterval: TimeInterval = 24 * 3600

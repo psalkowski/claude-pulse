@@ -79,22 +79,9 @@ struct DiscoveredAccount: Identifiable {
     // Most recent activity across all of this account's config dirs — a proxy
     // for "Claude Code is being used in this subscription right now".
     func lastActivity() -> Date? {
-        let fm = FileManager.default
-        var latest: Date?
-        for dir in configDirs {
-            let projects = dir.appendingPathComponent("projects", isDirectory: true)
-            guard let enumerator = fm.enumerator(
-                at: projects,
-                includingPropertiesForKeys: [.contentModificationDateKey],
-                options: [.skipsHiddenFiles]
-            ) else { continue }
-            for case let url as URL in enumerator where url.pathExtension == "jsonl" {
-                if let date = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate {
-                    if latest == nil || date > latest! { latest = date }
-                }
-            }
-        }
-        return latest
+        configDirs
+            .compactMap { FileActivity.latestModification(under: $0.appendingPathComponent("projects", isDirectory: true)) }
+            .max()
     }
 }
 

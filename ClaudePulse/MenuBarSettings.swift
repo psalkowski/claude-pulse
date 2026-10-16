@@ -1,18 +1,24 @@
 import Foundation
+import WidgetKit
 
 @MainActor
 final class MenuBarSettings: ObservableObject {
-    private static let key = "menuBarHiddenAccounts"
+    private nonisolated static let key = "menuBarHiddenAccounts"
 
     @Published var hiddenAccountIDs: Set<String> {
         didSet {
             UserDefaults.standard.set(Array(hiddenAccountIDs).sorted(), forKey: Self.key)
+            SnapshotStore.update { $0.hiddenAccountIDs = Array(hiddenAccountIDs).sorted() }
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
 
     init() {
-        let stored = UserDefaults.standard.stringArray(forKey: Self.key) ?? []
-        hiddenAccountIDs = Set(stored)
+        hiddenAccountIDs = Self.storedHiddenIDs()
+    }
+
+    nonisolated static func storedHiddenIDs() -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
     }
 
     func isVisible(_ accountID: String) -> Bool {

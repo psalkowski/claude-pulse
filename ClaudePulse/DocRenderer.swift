@@ -30,8 +30,10 @@ enum DocRenderer {
             .background(Color(red: 0.13, green: 0.13, blue: 0.14))
         save(forecast, to: outDir.appendingPathComponent("forecast.png"))
 
+        var widgetSnapshot = UsageSnapshot.sample
+        widgetSnapshot.hiddenAccountIDs = ["sample-team"]
         let widget = UsageWidgetView(
-            entry: UsageEntry(date: Date(), snapshot: .sample),
+            entry: UsageEntry(date: Date(), snapshot: widgetSnapshot),
             familyOverride: .systemMedium
         )
             .padding(16)
@@ -43,6 +45,7 @@ enum DocRenderer {
         let menubar = MenuBarIconView(gauges: [
             GaugeSpec(utilization: 28, dimmed: false),
             GaugeSpec(utilization: 100, dimmed: false),
+            GaugeSpec(utilization: 22, dimmed: false),
         ])
         .padding(.horizontal, 16)
         .padding(.vertical, 7)

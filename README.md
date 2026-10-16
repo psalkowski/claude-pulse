@@ -9,21 +9,26 @@
 A native macOS **menubar app + widget** that shows your Claude Code usage limits —
 the 5-hour session and weekly windows, with reset times — for **every** Claude Code
 subscription on your machine at once (e.g. a personal Max account and a Team account).
+Signed in to Codex with ChatGPT? Your Codex limits show up alongside, picked up
+automatically from `~/.codex`.
 
 It reads the same numbers Claude Code's `/usage` and claude.ai's "usage limits" panel
 show, and it **never touches the macOS Keychain**, so it never triggers a keychain
 password prompt.
 
-- **Menubar:** one ring per subscription with the 5-hour % inside; click for the full
+- **Menubar:** one ring per subscription with the 5-hour % inside (the weekly % for a
+  plan without a 5-hour window, such as Codex on ChatGPT Pro); click for the full
   breakdown.
 - **Popover:** per subscription — Current session, Weekly (all models), and Weekly
   Fable/Opus when available, each with a progress bar, reset time and a **forecast**:
   where usage will be when the window resets, whether you're on pace, at risk or likely
   to hit the limit, when you'd hit 100%, and how much less to use (or how long to
-  pause) to make it.
-- **Widget:** small (first subscription) or medium (all) for your desktop / Notification
-  Center.
-- **Keep sessions active:** optionally poll every subscription on a schedule to keep a
+  pause) to make it. With three or more subscriptions each one is a compact row with
+  small bars and its status; click a row for the full breakdown. The riskiest one opens
+  on its own.
+- **Widget:** small (one subscription) or medium (two) for your desktop / Notification
+  Center. It fills its slots with the subscriptions shown in the menubar first.
+- **Keep sessions active:** optionally poll every Claude subscription on a schedule to keep a
   5-hour window warm — or trigger one from `cron` with `scripts/ping-session.sh`
   ([details](#optional-keep-a-session-warm-from-a-cron-job)).
 
@@ -68,7 +73,7 @@ Popover (click the menubar icon) and the medium widget:
 |------|-----|
 | macOS 14 (Sonoma) or newer | WidgetKit + `MenuBarExtra` |
 | Apple Silicon | Release binaries are arm64-only (Intel: [build from source](#development--build-from-source)) |
-| One or more logged-in Claude Code subscriptions | Source of the accounts |
+| One or more logged-in Claude Code subscriptions, and/or Codex signed in with ChatGPT | Source of the accounts |
 
 Release builds are **ad-hoc signed** (no paid Apple Developer account), so macOS
 Gatekeeper asks for a one-time confirmation on first launch — see [Install](#install).
@@ -126,12 +131,12 @@ menu's **Check for Updates…** triggers a check on demand.
 > Update once by hand — `brew upgrade --cask claude-pulse`, or drag the latest DMG
 > over the old app — and automatic updates resume from there.
 
-## First-time setup (one token per subscription)
+## First-time setup (one token per Claude subscription)
 
 Because Claude Pulse never reads the Keychain, you give it a token explicitly — a
 **long-lived (~1 year)** token that Anthropic provides for exactly this purpose:
 
-1. Click the **Claude Pulse** menubar icon. Each subscription shows **Add usage token**.
+1. Click the **Claude Pulse** menubar icon. Each Claude subscription shows **Add usage token**.
 2. Click it. The window shows the exact command to run, e.g.:
    - Personal: `claude setup-token`
    - Team: `CLAUDE_CONFIG_DIR=~/.claude-team claude setup-token`
@@ -147,10 +152,19 @@ delete its config folder), its card stays and says it's signed out, as long as t
 still holds its token. Sign in to it again, or choose **Keep with token only…** to name it
 and keep it as a token-only subscription.
 
+### Codex needs no setup
+
+If you sign in to Codex with your ChatGPT account (`codex login`), Claude Pulse reads that
+sign-in from `~/.codex/auth.json` and shows your Codex limits with no token to paste. It
+only reads the file: Codex keeps refreshing its own sign-in. If that sign-in expires, the
+Codex card greys out and asks you to open Codex; it recovers on its own once Codex has
+refreshed. Codex signed in with an API key, or set to keep its sign-in in the Keychain,
+has no subscription limits for Claude Pulse to show.
+
 ### Add the widget
 
 After the first launch, right-click the desktop → **Edit Widgets** → search "Claude
-Usage" → add the small or medium size.
+Pulse" → add the small or medium size.
 
 ## How it works
 
@@ -171,6 +185,11 @@ Usage" → add the small or medium size.
   the server receives only after the window has ended would open a new one. Once the
   window has closed it stays quiet and shows the last reading. Turn on **Keep sessions active**
   (gear menu) to poll regardless and deliberately keep a session warm.
+- **Codex** usage comes from ChatGPT's read-only Codex usage endpoint
+  (`chatgpt.com/backend-api/wham/usage`), called with the access token in
+  `~/.codex/auth.json`. Reading it costs nothing and starts no window, so Codex is checked
+  every minute while it was used in the last 10 minutes (`~/.codex/sessions/` file times)
+  and every 5 minutes otherwise. Its forecast learns from Pulse's own readings.
 - **Forecast:** every reading is kept for 28 days
   (`~/Library/Application Support/ClaudePulse/usage-history.json`) and learned into an
   hour-of-week usage rhythm. From it Pulse projects usage at reset, the chance of hitting
@@ -196,8 +215,10 @@ reliable trigger.
 
 ## Settings (gear menu)
 
-- **Show in Menu Bar** — pick which subscriptions appear in the menubar.
-- **Keep sessions active** — poll every subscription regardless of activity.
+- **Show in Menu Bar** — pick which subscriptions appear in the menubar; the widget
+  shows these first.
+- **Keep sessions active** — poll every Claude subscription regardless of activity
+  (Codex is read on its own schedule; a read never opens a Codex window).
 - **Launch at Login**.
 - **Check for Updates…** — manual update check (updates also run automatically).
 

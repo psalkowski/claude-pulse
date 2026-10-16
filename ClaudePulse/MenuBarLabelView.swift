@@ -21,7 +21,7 @@ struct MenuBarLabelView: View {
             .filter { settings.isVisible($0.id) }
             .map {
                 GaugeAnimator.Target(
-                    utilization: $0.fiveHour?.utilization,
+                    utilization: ($0.fiveHour ?? $0.sevenDay)?.utilization,
                     dimmed: $0.tokenFailure != nil
                 )
             }

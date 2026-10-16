@@ -12,7 +12,7 @@ enum UsageClientError: LocalizedError {
     case rateLimited
     case http(Int)
     case invalidResponse
-    case noUsageHeaders
+    case noUsageData
 
     var errorDescription: String? {
         switch self {
@@ -20,7 +20,7 @@ enum UsageClientError: LocalizedError {
         case .rateLimited: return "Rate limited (429)"
         case .http(let code): return "HTTP \(code)"
         case .invalidResponse: return "Invalid response"
-        case .noUsageHeaders: return "No usage headers returned"
+        case .noUsageData: return "No usage data returned"
         }
     }
 }
@@ -91,7 +91,7 @@ struct UsageClient {
         switch http.statusCode {
         case 401, 403: throw UsageClientError.unauthorized(Self.tokenFailure(fromErrorBody: data))
         case 429: throw UsageClientError.rateLimited
-        case 200: throw UsageClientError.noUsageHeaders
+        case 200: throw UsageClientError.noUsageData
         default: throw UsageClientError.http(http.statusCode)
         }
     }

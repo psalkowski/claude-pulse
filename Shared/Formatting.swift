@@ -71,6 +71,15 @@ extension UsageFormat {
         }
     }
 
+    static func shortTitle(_ kind: UsageWindowKind) -> String {
+        switch kind {
+        case .fiveHour: return "Session"
+        case .sevenDay: return "Week"
+        case .sevenDayOpus: return "Opus"
+        case .sevenDayFable: return "Fable"
+        }
+    }
+
     static func endNoun(_ kind: UsageWindowKind) -> String {
         kind == .fiveHour ? "session" : "week"
     }

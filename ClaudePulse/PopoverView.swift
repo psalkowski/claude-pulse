@@ -4,14 +4,23 @@ import ServiceManagement
 struct PopoverView: View {
     @EnvironmentObject private var poller: UsagePoller
     var chromeless = false
+    @State private var chosenExpansion: String?? = nil
+
+    private var accounts: [AccountUsage] { poller.snapshot.accounts }
+
+    private var expandedID: String? {
+        chosenExpansion ?? PopoverLayout.defaultExpanded(accounts, forecasts: poller.forecasts)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if poller.snapshot.accounts.isEmpty {
+            if accounts.isEmpty {
                 emptyState
+            } else if PopoverLayout.isCompact(accounts) {
+                compactList
             } else {
-                ForEach(poller.snapshot.accounts) { account in
-                    AccountCard(account: account, chromeless: chromeless)
+                ForEach(accounts) { account in
+                    AccountCard(account: account, chromeless: chromeless, showsProvider: showsProvider)
                 }
             }
             Divider()
@@ -19,13 +28,39 @@ struct PopoverView: View {
         }
         .padding(14)
         .frame(width: 360)
+        .onAppear { chosenExpansion = .some(PopoverLayout.defaultExpanded(accounts, forecasts: poller.forecasts)) }
+    }
+
+    private var showsProvider: Bool { PopoverLayout.showsProviders(accounts) }
+
+    private var compactList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(accounts) { account in
+                if account.id == expandedID {
+                    AccountCard(
+                        account: account,
+                        chromeless: chromeless,
+                        showsProvider: showsProvider,
+                        collapse: { chosenExpansion = .some(nil) }
+                    )
+                } else {
+                    AccountRow(
+                        account: account,
+                        forecasts: poller.forecasts[account.id] ?? [:],
+                        risk: PopoverLayout.worstRisk(of: account, in: poller.forecasts),
+                        showsProvider: showsProvider,
+                        expand: { chosenExpansion = .some(account.id) }
+                    )
+                }
+            }
+        }
     }
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("No Claude Code accounts found")
+            Text("No subscriptions found")
                 .font(.headline)
-            Text("Claude Pulse looks for logged-in config dirs under your home folder (~/.claude, ~/.claude-team, ~/.config/…). If a subscription lives somewhere else, add it by hand.")
+            Text("Claude Pulse looks for logged-in Claude Code config dirs under your home folder (~/.claude, ~/.claude-team, ~/.config/…) and a Codex sign-in in ~/.codex. If a Claude subscription lives somewhere else, add it by hand.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -195,6 +230,8 @@ private struct SettingsMenu: View {
 struct AccountCard: View {
     let account: AccountUsage
     var chromeless = false
+    var showsProvider = false
+    var collapse: (() -> Void)? = nil
     @EnvironmentObject private var poller: UsagePoller
     @Environment(\.openWindow) private var openWindow
 
@@ -207,31 +244,29 @@ struct AccountCard: View {
 
     private var forecasts: AccountForecasts { poller.forecasts[account.id] ?? [:] }
 
-    private static func title(_ kind: UsageWindowKind) -> String {
-        switch kind {
-        case .fiveHour: "Current session"
-        case .sevenDay: "Weekly · All models"
-        case .sevenDayOpus: "Weekly · Opus"
-        case .sevenDayFable: "Weekly · Fable"
+    private func title(_ kind: UsageWindowKind) -> String {
+        switch (kind, account.isCodex) {
+        case (.fiveHour, false): "Current session"
+        case (.fiveHour, true): "5-hour window"
+        case (.sevenDay, false): "Weekly · All models"
+        case (.sevenDay, true): "Weekly"
+        case (.sevenDayOpus, _): "Weekly · Opus"
+        case (.sevenDayFable, _): "Weekly · Fable"
         }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(account.label)
-                        .font(.headline)
-                    if let detail = account.detail {
-                        Text(detail)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                if let collapse {
+                    Button(action: collapse) { header }
+                        .buttonStyle(.plain)
+                        .help("Collapse")
+                } else {
+                    header
                 }
-                .greyedOut(tokenFailed)
-                Spacer()
                 statusBadge
-                if !chromeless { tokenMenu }
+                if !chromeless && !account.isCodex { tokenMenu }
             }
             if let failure = account.tokenFailure {
                 tokenFailureNotice(failure)
@@ -246,7 +281,30 @@ struct AccountCard: View {
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
     }
 
+    private var header: some View {
+        HStack(alignment: .top, spacing: 8) {
+            AccountTitle(account: account, showsProvider: showsProvider, compact: false)
+                .greyedOut(tokenFailed)
+            Spacer()
+            if collapse != nil {
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 3)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
     private func tokenFailureNotice(_ failure: TokenFailure) -> some View {
+        if account.isCodex {
+            return CredentialNotice(
+                icon: "key.slash",
+                tint: .orange,
+                title: failure == .expired ? "Codex sign-in expired" : "Codex sign-in not accepted",
+                message: "Open Codex to refresh it; Claude Pulse picks up the new sign-in by itself. The numbers below are from the last successful update."
+            )
+        }
         let (title, reason): (String, String) = switch failure {
         case .expired: ("Usage token expired", "Tokens from `claude setup-token` last about a year.")
         case .revoked: ("Usage token revoked", "Anthropic reports this token was revoked.")
@@ -289,7 +347,7 @@ struct AccountCard: View {
             ForEach(UsageWindowKind.allCases, id: \.self) { kind in
                 if let window = account.window(kind) {
                     UsageRow(
-                        title: Self.title(kind),
+                        title: title(kind),
                         window: window,
                         forecast: tokenFailed ? nil : forecasts[kind],
                         muted: tokenFailed
@@ -359,10 +417,10 @@ private struct CredentialNotice: View {
     let tint: Color
     let title: String
     let message: LocalizedStringKey
-    let action: String
+    let action: String?
     let perform: () -> Void
 
-    init(icon: String, tint: Color, title: String, message: String, action: String, perform: @escaping () -> Void) {
+    init(icon: String, tint: Color, title: String, message: String, action: String? = nil, perform: @escaping () -> Void = {}) {
         self.icon = icon
         self.tint = tint
         self.title = title
@@ -383,8 +441,10 @@ private struct CredentialNotice: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Button(action, action: perform)
-                    .controlSize(.small)
+                if let action {
+                    Button(action, action: perform)
+                        .controlSize(.small)
+                }
             }
         }
         .padding(8)
@@ -396,6 +456,147 @@ private struct CredentialNotice: View {
 private extension View {
     func greyedOut(_ greyed: Bool) -> some View {
         opacity(greyed ? 0.45 : 1)
+    }
+}
+
+private struct AccountTitle: View {
+    let account: AccountUsage
+    let showsProvider: Bool
+    let compact: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 6) {
+                Text(account.label)
+                    .font(.headline)
+                    .lineLimit(compact ? 1 : nil)
+                if showsProvider {
+                    Text(account.isCodex ? "Codex" : "Claude")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(.quaternary, in: Capsule())
+                }
+            }
+            if !compact, let detail = account.detail {
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct AccountRow: View {
+    let account: AccountUsage
+    let forecasts: AccountForecasts
+    let risk: ForecastRisk?
+    let showsProvider: Bool
+    let expand: () -> Void
+
+    var body: some View {
+        Button(action: expand) {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 8) {
+                    AccountTitle(account: account, showsProvider: showsProvider, compact: true)
+                    Spacer(minLength: 4)
+                    status
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                gauges
+                    .greyedOut(account.tokenFailure != nil)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .help("Show details")
+    }
+
+    @ViewBuilder
+    private var gauges: some View {
+        if account.hasAnyData {
+            HStack(spacing: 12) {
+                ForEach(UsageWindowKind.allCases, id: \.self) { kind in
+                    if let window = account.window(kind) {
+                        MiniGauge(
+                            title: UsageFormat.shortTitle(kind),
+                            window: window,
+                            color: account.tokenFailure != nil ? .gray
+                                : forecasts[kind].map { UsageFormat.riskColor($0.risk) } ?? UsageFormat.color(window.utilization)
+                        )
+                    }
+                }
+            }
+        } else if !account.needsToken {
+            Text("No data yet")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        if account.needsToken {
+            statusLabel("Add usage token", systemImage: "key.fill", color: .orange)
+        } else if let failure = account.tokenFailure {
+            statusLabel(Self.failureText(failure, codex: account.isCodex), systemImage: "key.slash", color: .orange)
+        } else if account.origin == .signedOut {
+            statusLabel("Signed out", systemImage: "person.crop.circle.badge.xmark", color: .secondary)
+        } else if let error = account.fetchError {
+            statusLabel(error, systemImage: "wifi.exclamationmark", color: .red)
+        } else if let risk {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(UsageFormat.riskColor(risk))
+                    .frame(width: 7, height: 7)
+                Text(UsageFormat.riskLabel(risk))
+                    .foregroundStyle(UsageFormat.riskColor(risk))
+            }
+            .font(.caption.weight(.semibold))
+        }
+    }
+
+    private func statusLabel(_ text: String, systemImage: String, color: Color) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(.caption)
+            .foregroundStyle(color)
+            .lineLimit(1)
+    }
+
+    private static func failureText(_ failure: TokenFailure, codex: Bool) -> String {
+        let subject = codex ? "Sign-in" : "Token"
+        switch failure {
+        case .expired: return "\(subject) expired"
+        case .revoked: return "\(subject) revoked"
+        case .invalid: return "\(subject) not accepted"
+        }
+    }
+}
+
+private struct MiniGauge: View {
+    let title: String
+    let window: UsageWindow
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
+                Text(title)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 2)
+                Text("\(Int(window.utilization.rounded()))%")
+                    .monospacedDigit()
+            }
+            .font(.caption)
+            UsageBar(fraction: window.utilization / 100, color: color, height: 5)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
