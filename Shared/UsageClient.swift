@@ -29,11 +29,22 @@ enum UsageClientError: LocalizedError {
 // Anthropic attaches to every /v1/messages response — the same source Claude
 // Code uses for its statusline. A minimal 1-token request is enough; the body is
 // discarded. This costs ~1 token and (re)starts the 5-hour window, so callers
-// should only invoke it when that subscription is actively in use.
+// should only invoke it while that subscription is in use or its window is open.
 struct UsageClient {
     static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
+    static let requestTimeout: TimeInterval = 30
+    static let deadline: TimeInterval = 60
     static let userAgent = "claude-cli/2.1.173 (external, cli)"
     static let haikuModel = "claude-haiku-4-5-20251001"
+
+    static func configuration(deadline: TimeInterval = deadline) -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = requestTimeout
+        configuration.timeoutIntervalForResource = deadline
+        return configuration
+    }
+
+    var session = URLSession(configuration: UsageClient.configuration())
 
     // Use Haiku for every window it returns, including a passive Fable window.
     // Probing Fable directly would consume its limited weekly allowance.
@@ -50,7 +61,6 @@ struct UsageClient {
         request.setValue("cli", forHTTPHeaderField: "x-app")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 30
 
         let body: [String: Any] = [
             "model": model,
@@ -60,7 +70,7 @@ struct UsageClient {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw UsageClientError.invalidResponse }
 
         // Read the usage headers regardless of status — a 429 (limit reached)

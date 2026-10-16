@@ -42,6 +42,27 @@ struct AccountUsage: Codable, Identifiable, Equatable {
     }
 }
 
+protocol UsageWindows {
+    var fiveHour: UsageWindow? { get }
+    var sevenDay: UsageWindow? { get }
+    var sevenDayOpus: UsageWindow? { get }
+    var sevenDayFable: UsageWindow? { get }
+}
+
+extension AccountUsage: UsageWindows {}
+extension UsageReport: UsageWindows {}
+
+extension UsageWindows {
+    func window(_ kind: UsageWindowKind) -> UsageWindow? {
+        switch kind {
+        case .fiveHour: fiveHour
+        case .sevenDay: sevenDay
+        case .sevenDayOpus: sevenDayOpus
+        case .sevenDayFable: sevenDayFable
+        }
+    }
+}
+
 struct UsageSnapshot: Codable, Equatable {
     var fetchedAt: Date
     var accounts: [AccountUsage]

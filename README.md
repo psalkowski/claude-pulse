@@ -17,7 +17,10 @@ password prompt.
 - **Menubar:** one ring per subscription with the 5-hour % inside; click for the full
   breakdown.
 - **Popover:** per subscription — Current session, Weekly (all models), and Weekly
-  Fable/Opus when available, each with a progress bar and reset time.
+  Fable/Opus when available, each with a progress bar, reset time and a **forecast**:
+  where usage will be when the window resets, whether you're on pace, at risk or likely
+  to hit the limit, when you'd hit 100%, and how much less to use (or how long to
+  pause) to make it.
 - **Widget:** small (first subscription) or medium (all) for your desktop / Notification
   Center.
 - **Keep sessions active:** optionally poll every subscription on a schedule to keep a
@@ -138,11 +141,24 @@ Usage" → add the small or medium size.
 - **Labels** (plan tier, org name, seat) are read from those same files.
 - **Usage** comes from the `anthropic-ratelimit-unified-*` headers on a tiny 1-token
   `/v1/messages` request — the same data Claude Code uses for its statusline.
-- **Polling is activity-gated:** Claude Pulse only makes that request for a subscription
-  whose Claude Code was used in the last 10 minutes (it watches `<config-dir>/projects/`
-  file times). While you work, the request rides on the already-active session and starts
-  nothing; while you're idle it stays quiet and shows the last reading. Turn on **Keep
-  sessions active** (gear menu) to poll regardless and deliberately keep a session warm.
+- **Polling is activity-gated:** Claude Pulse polls a subscription every minute while
+  its Claude Code was used in the last 10 minutes (it watches `<config-dir>/projects/`
+  file times). With no local activity it still checks every 5 minutes while that
+  subscription's 5-hour window is open — so use on claude.ai or another machine shows
+  up too. As safeguards against starting a new session, it only sends that request
+  while the window has at least 2 minutes left by your Mac's clock, and gives up on any
+  request after 60 seconds. That is a margin, not a guarantee from Anthropic: a request
+  the server receives only after the window has ended would open a new one. Once the
+  window has closed it stays quiet and shows the last reading. Turn on **Keep sessions active**
+  (gear menu) to poll regardless and deliberately keep a session warm.
+- **Forecast:** every reading is kept for 28 days
+  (`~/Library/Application Support/ClaudePulse/usage-history.json`) and learned into an
+  hour-of-week usage rhythm. From it Pulse projects usage at reset, the chance of hitting
+  100%, and a safe budget. Until 48 hours of readings exist it starts from the rhythm in
+  your Claude Code transcripts (`<config-dir>/projects/*/*.jsonl`, scanned in the
+  background once a day) or, without enough transcripts, from your current pace. In the
+  bar, solid is used, faded is the forecast by reset, and the vertical line is how much of
+  the window has passed.
 - **Updates:** tagged release builds check daily through Sparkle. Local source builds do
   not initialize the updater, so they cannot replace an installed release accidentally.
 
