@@ -192,7 +192,7 @@ private struct SettingsMenu: View {
     }
 }
 
-private struct AccountCard: View {
+struct AccountCard: View {
     let account: AccountUsage
     var chromeless = false
     @EnvironmentObject private var poller: UsagePoller

@@ -23,6 +23,13 @@ enum DocRenderer {
             .background(Color(red: 0.13, green: 0.13, blue: 0.14))
         save(popover, to: outDir.appendingPathComponent("popover.png"))
 
+        let forecast = AccountCard(account: UsageSnapshot.sample.accounts[1], chromeless: true)
+            .environmentObject(poller)
+            .padding(14)
+            .frame(width: 360)
+            .background(Color(red: 0.13, green: 0.13, blue: 0.14))
+        save(forecast, to: outDir.appendingPathComponent("forecast.png"))
+
         let widget = UsageWidgetView(
             entry: UsageEntry(date: Date(), snapshot: .sample),
             familyOverride: .systemMedium
