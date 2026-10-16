@@ -11,6 +11,7 @@ struct UsageBar: View {
     var elapsedFraction: Double? = nil
 
     private static let markOverhang: CGFloat = 3
+    private static let markHalo: CGFloat = 1
 
     var body: some View {
         GeometryReader { geo in
@@ -34,7 +35,7 @@ struct UsageBar: View {
             }
             .overlay(alignment: .leading) {
                 if let elapsedFraction {
-                    mark(color: .primary, width: 1.5, at: clamped(elapsedFraction) * width - 0.75)
+                    mark(color: .primary, width: 2, at: clamped(elapsedFraction) * width - 1)
                 }
             }
         }
@@ -49,6 +50,11 @@ struct UsageBar: View {
         RoundedRectangle(cornerRadius: width / 2)
             .fill(color)
             .frame(width: width, height: height + 2 * Self.markOverhang)
-            .offset(x: x)
+            .padding(Self.markHalo)
+            .background(
+                RoundedRectangle(cornerRadius: width / 2 + Self.markHalo)
+                    .fill(Color(nsColor: .windowBackgroundColor))
+            )
+            .offset(x: x - Self.markHalo)
     }
 }

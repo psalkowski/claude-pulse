@@ -63,6 +63,11 @@ extension UsageFormat {
         }
     }
 
+    static func barColor(_ window: UsageWindow, forecast: UsageForecast?, muted: Bool) -> Color {
+        if muted { return .gray }
+        return forecast.map { riskColor($0.risk) } ?? color(window.utilization)
+    }
+
     static func riskLabel(_ risk: ForecastRisk) -> String {
         switch risk {
         case .onPace: return "On pace"

@@ -527,8 +527,8 @@ private struct AccountRow: View {
                         MiniGauge(
                             title: UsageFormat.shortTitle(kind),
                             window: window,
-                            color: account.tokenFailure != nil ? .gray
-                                : forecasts[kind].map { UsageFormat.riskColor($0.risk) } ?? UsageFormat.color(window.utilization)
+                            forecast: account.tokenFailure == nil ? forecasts[kind] : nil,
+                            muted: account.tokenFailure != nil
                         )
                     }
                 }
@@ -582,10 +582,11 @@ private struct AccountRow: View {
 private struct MiniGauge: View {
     let title: String
     let window: UsageWindow
-    let color: Color
+    let forecast: UsageForecast?
+    let muted: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 4) {
                 Text(title)
                     .foregroundStyle(.secondary)
@@ -594,7 +595,15 @@ private struct MiniGauge: View {
                     .monospacedDigit()
             }
             .font(.caption)
-            UsageBar(fraction: window.utilization / 100, color: color, height: 5)
+            TimelineView(.everyMinute) { context in
+                UsageBar(
+                    fraction: window.utilization / 100,
+                    color: UsageFormat.barColor(window, forecast: forecast, muted: muted),
+                    height: 6,
+                    projectedFraction: forecast.map { $0.projected / 100 },
+                    elapsedFraction: forecast?.elapsedFraction(now: context.date)
+                )
+            }
         }
         .frame(maxWidth: .infinity)
     }
@@ -606,10 +615,6 @@ private struct UsageRow: View {
     var forecast: UsageForecast?
     var muted = false
 
-    private var barColor: Color {
-        if muted { return .gray }
-        return forecast.map { UsageFormat.riskColor($0.risk) } ?? UsageFormat.color(window.utilization)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -627,7 +632,7 @@ private struct UsageRow: View {
                 VStack(alignment: .leading, spacing: 7) {
                     UsageBar(
                         fraction: window.utilization / 100,
-                        color: barColor,
+                        color: UsageFormat.barColor(window, forecast: forecast, muted: muted),
                         height: forecast == nil ? 6 : 8,
                         projectedFraction: forecast.map { $0.projected / 100 },
                         elapsedFraction: forecast?.elapsedFraction(now: context.date)
