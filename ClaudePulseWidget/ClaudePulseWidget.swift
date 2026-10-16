@@ -31,8 +31,8 @@ struct UsageWidget: Widget {
             UsageWidgetView(entry: entry)
                 .containerBackground(.background, for: .widget)
         }
-        .configurationDisplayName("Claude Usage")
-        .description("Session and weekly limits for your Claude Code subscriptions.")
+        .configurationDisplayName("Claude Pulse")
+        .description("Session and weekly limits for your Claude Code and Codex subscriptions.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

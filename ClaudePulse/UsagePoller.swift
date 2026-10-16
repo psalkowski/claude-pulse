@@ -15,6 +15,7 @@ final class UsagePoller: ObservableObject {
     private var timer: Timer?
     private var started = false
     private let client = UsageClient()
+    private let codexClient = CodexUsageClient()
     private let history: UsageHistoryStore?
     private var lastAttemptAt: [String: Date] = [:]
 
@@ -63,10 +64,12 @@ final class UsagePoller: ObservableObject {
 
     private func performRefresh(force: Bool) async {
         let keepAlive = UserDefaults.standard.bool(forKey: Self.keepAliveKey)
-        let onDisk = await Task.detached(priority: .utility) {
-            AccountDiscovery.all().map { account -> (DiscoveredAccount, Date?) in
+        let (onDisk, codex) = await Task.detached(priority: .utility) {
+            let claude = AccountDiscovery.all().map { account -> (DiscoveredAccount, Date?) in
                 (account, account.lastActivity())
             }
+            let codex = CodexAccount.discover().map { ($0, CodexAccount.lastActivity()) }
+            return (claude, codex)
         }.value
 
         let previousByID = Dictionary(snapshot.accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -77,9 +80,9 @@ final class UsagePoller: ObservableObject {
                 (DiscoveredAccount(signedOut: id, lastSeen: previousByID[id]), nil)
             }
         let discovered = onDisk + signedOut
-        var results: [FetchOutcome] = []
+        var results: [AccountRefresh.Outcome] = []
 
-        await withTaskGroup(of: FetchOutcome.self) { group in
+        await withTaskGroup(of: AccountRefresh.Outcome.self) { group in
             for (account, lastActivity) in discovered {
                 let previous = previousByID[account.id]
                 let token = TokenStore.token(for: account.id)
@@ -87,7 +90,7 @@ final class UsagePoller: ObservableObject {
                     hasToken: token != nil,
                     force: force,
                     keepAlive: keepAlive,
-                    isActive: lastActivity.map { Date().timeIntervalSince($0) < Self.activeWindow } ?? false,
+                    isActive: Self.isActive(lastActivity),
                     sessionResetsAt: previous?.fiveHour?.resetsAt,
                     lastAttemptAt: lastAttemptAt[account.id]
                 )
@@ -101,6 +104,22 @@ final class UsagePoller: ObservableObject {
                     )
                 }
             }
+            if case let (account, lastActivity)? = codex {
+                let previous = previousByID[account.id]
+                let isActive = Self.isActive(lastActivity)
+                let lastAttemptAt = lastAttemptAt[account.id]
+                group.addTask { [codexClient] in
+                    await AccountRefresh.codex(
+                        account: account,
+                        previous: previous,
+                        force: force,
+                        isActive: isActive,
+                        lastAttemptAt: lastAttemptAt,
+                        now: Date(),
+                        read: codexClient.fetch
+                    )
+                }
+            }
             for await result in group { results.append(result) }
         }
 
@@ -111,7 +130,11 @@ final class UsagePoller: ObservableObject {
                 history?.record(report, accountID: result.usage.id, at: attemptedAt)
             }
         }
-        snapshot = UsageSnapshot(fetchedAt: now, accounts: Self.sorted(results.map(\.usage)))
+        snapshot = UsageSnapshot(
+            fetchedAt: now,
+            accounts: Self.sorted(results.map(\.usage)),
+            hiddenAccountIDs: MenuBarSettings.storedHiddenIDs().sorted()
+        )
         SnapshotStore.save(snapshot)
         WidgetCenter.shared.reloadAllTimelines()
         if let history {
@@ -121,68 +144,36 @@ final class UsagePoller: ObservableObject {
         }
     }
 
-    private struct FetchOutcome {
-        var usage: AccountUsage
-        var attemptedAt: Date?
-        var report: UsageReport?
-    }
-
     private static func buildUsage(
         account: DiscoveredAccount,
         token: String?,
         previous: AccountUsage?,
         policy: FetchPolicy.Inputs,
         client: UsageClient
-    ) async -> FetchOutcome {
+    ) async -> AccountRefresh.Outcome {
         let label = account.label
-        var usage = AccountUsage(
+        let attemptedAt = Date()
+        let usage = AccountRefresh.carryingOver(previous, now: attemptedAt, into: AccountUsage(
             id: account.id,
             label: label.title,
             detail: label.detail,
             subscriptionType: account.profile.organizationType,
             // Polls that don't fetch must keep the last verdict on the token.
             tokenFailure: token == nil ? nil : previous?.tokenFailure,
-            fetchError: nil,
-            lastSuccessAt: previous?.lastSuccessAt,
-            fiveHour: rolled(previous?.fiveHour),
-            sevenDay: rolled(previous?.sevenDay),
-            sevenDayOpus: rolled(previous?.sevenDayOpus),
-            sevenDayFable: rolled(previous?.sevenDayFable),
-            pingError: nil,
             needsToken: token == nil,
             configDir: account.configDir?.path,
             origin: account.origin
-        )
-        let attemptedAt = Date()
+        ))
         guard FetchPolicy.shouldFetch(policy, now: attemptedAt), let token else {
-            return FetchOutcome(usage: usage)
+            return AccountRefresh.Outcome(usage: usage)
         }
-        do {
-            let report = try await client.fetch(accessToken: token)
-            // Each window updates only if this fetch actually returned it;
-            // otherwise it keeps the last-known value. The Haiku probe may
-            // include the Fable window; Fable itself is never queried.
-            usage.fiveHour = report.fiveHour ?? usage.fiveHour
-            usage.sevenDay = report.sevenDay ?? usage.sevenDay
-            usage.sevenDayOpus = report.sevenDayOpus ?? usage.sevenDayOpus
-            usage.sevenDayFable = report.sevenDayFable ?? usage.sevenDayFable
-            usage.lastSuccessAt = Date()
-            usage.tokenFailure = nil
-            return FetchOutcome(usage: usage, attemptedAt: attemptedAt, report: report)
-        } catch UsageClientError.unauthorized(let failure) {
-            usage.tokenFailure = failure
-        } catch {
-            usage.fetchError = error.localizedDescription
+        return await AccountRefresh.fetched(usage, attemptedAt: attemptedAt) {
+            try await client.fetch(accessToken: token)
         }
-        return FetchOutcome(usage: usage, attemptedAt: attemptedAt)
     }
 
-    // A usage window whose reset time has passed has rolled over to ~0 while we
-    // weren't polling. Reflect that instead of showing a stale full bar.
-    private static func rolled(_ window: UsageWindow?) -> UsageWindow? {
-        guard let window, let resetsAt = window.resetsAt else { return window }
-        if resetsAt <= Date() { return UsageWindow(utilization: 0, resetsAt: nil) }
-        return window
+    private static func isActive(_ lastActivity: Date?) -> Bool {
+        lastActivity.map { Date().timeIntervalSince($0) < activeWindow } ?? false
     }
 
     private static func sorted(_ accounts: [AccountUsage]) -> [AccountUsage] {
@@ -190,6 +181,7 @@ final class UsagePoller: ObservableObject {
     }
 
     private static func rank(_ account: AccountUsage) -> Int {
+        if account.isCodex { return 3 }
         let type = account.subscriptionType?.lowercased() ?? ""
         if type.contains("max") || type.contains("pro") { return 0 }
         if type.contains("team") || type.contains("enterprise") { return 1 }

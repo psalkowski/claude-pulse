@@ -38,6 +38,8 @@ struct TranscriptActivity: Equatable {
     var total: Int
 }
 
+typealias AccountForecasts = [UsageWindowKind: UsageForecast]
+
 struct UsageForecast: Equatable {
     var kind: UsageWindowKind
     var used: Double

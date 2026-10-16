@@ -18,6 +18,11 @@ enum AccountOrigin: String, Codable {
     case signedOut      // we hold its token, but no folder here is signed in to it any more
 }
 
+enum UsageProvider: String, Codable {
+    case claude
+    case codex
+}
+
 struct AccountUsage: Codable, Identifiable, Equatable {
     var id: String
     var label: String
@@ -36,6 +41,9 @@ struct AccountUsage: Codable, Identifiable, Equatable {
     var configDir: String? = nil
     // Optional so snapshots written before it existed still decode.
     var origin: AccountOrigin? = nil
+    var provider: UsageProvider? = nil
+
+    var isCodex: Bool { provider == .codex }
 
     var hasAnyData: Bool {
         fiveHour != nil || sevenDay != nil || sevenDayOpus != nil || sevenDayFable != nil
@@ -66,6 +74,12 @@ extension UsageWindows {
 struct UsageSnapshot: Codable, Equatable {
     var fetchedAt: Date
     var accounts: [AccountUsage]
+    var hiddenAccountIDs: [String]? = nil
+
+    var widgetAccounts: [AccountUsage] {
+        let hidden = Set(hiddenAccountIDs ?? [])
+        return accounts.filter { !hidden.contains($0.id) } + accounts.filter { hidden.contains($0.id) }
+    }
 
     static let empty = UsageSnapshot(fetchedAt: .distantPast, accounts: [])
 
@@ -95,6 +109,15 @@ struct UsageSnapshot: Codable, Equatable {
                 sevenDay: UsageWindow(utilization: 61, resetsAt: Date().addingTimeInterval(4.5 * 86400)),
                 sevenDayOpus: nil,
                 sevenDayFable: nil
+            ),
+            AccountUsage(
+                id: "codex:sample",
+                label: "ChatGPT Pro",
+                detail: "you@example.com",
+                subscriptionType: "pro",
+                lastSuccessAt: Date(),
+                sevenDay: UsageWindow(utilization: 22, resetsAt: Date().addingTimeInterval(2.4 * 86400)),
+                provider: .codex
             ),
         ]
     )

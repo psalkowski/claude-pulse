@@ -17,6 +17,14 @@ final class FetchPolicyTests: XCTestCase {
         XCTAssertFalse(FetchPolicy.shouldFetch(idle(resetsIn: nil, lastAttemptAgo: nil), now: now))
     }
 
+    func testFreeReadPollsWhileActiveAndEveryFewMinutesWhenIdle() {
+        XCTAssertTrue(FetchPolicy.shouldRead(force: false, isActive: false, lastAttemptAt: nil, now: now))
+        XCTAssertFalse(FetchPolicy.shouldRead(force: false, isActive: false, lastAttemptAt: now.addingTimeInterval(-2 * 60), now: now))
+        XCTAssertTrue(FetchPolicy.shouldRead(force: false, isActive: false, lastAttemptAt: now.addingTimeInterval(-6 * 60), now: now))
+        XCTAssertTrue(FetchPolicy.shouldRead(force: false, isActive: true, lastAttemptAt: now.addingTimeInterval(-10), now: now))
+        XCTAssertTrue(FetchPolicy.shouldRead(force: true, isActive: false, lastAttemptAt: now.addingTimeInterval(-10), now: now))
+    }
+
     func testActivityStillPollsRegardlessOfWindow() {
         var inputs = idle(resetsIn: nil, lastAttemptAgo: 10)
         inputs.isActive = true

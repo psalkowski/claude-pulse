@@ -35,9 +35,9 @@ struct UsageWidgetView: View {
         case .systemMedium:
             VStack(spacing: 4) {
                 HStack(alignment: .top, spacing: 10) {
-                    ForEach(entry.snapshot.accounts.prefix(2)) { account in
+                    ForEach(entry.snapshot.widgetAccounts.prefix(2)) { account in
                         AccountColumn(account: account)
-                        if account.id != entry.snapshot.accounts.prefix(2).last?.id {
+                        if account.id != entry.snapshot.widgetAccounts.prefix(2).last?.id {
                             Divider()
                         }
                     }
@@ -46,7 +46,7 @@ struct UsageWidgetView: View {
             }
         default:
             VStack(spacing: 4) {
-                if let account = entry.snapshot.accounts.first {
+                if let account = entry.snapshot.widgetAccounts.first {
                     AccountColumn(account: account)
                 }
                 staleFooter
@@ -90,17 +90,10 @@ private struct AccountColumn: View {
                         .lineLimit(1)
                 }
             }
-            if let window = account.fiveHour {
-                WindowGauge(title: "Session", window: window)
-            }
-            if let window = account.sevenDay {
-                WindowGauge(title: "Week", window: window)
-            }
-            if let window = account.sevenDayOpus {
-                WindowGauge(title: "Opus", window: window)
-            }
-            if let window = account.sevenDayFable {
-                WindowGauge(title: "Fable", window: window)
+            ForEach(UsageWindowKind.allCases, id: \.self) { kind in
+                if let window = account.window(kind) {
+                    WindowGauge(title: UsageFormat.shortTitle(kind), window: window)
+                }
             }
             if !account.hasAnyData {
                 Text("No data")

@@ -87,7 +87,12 @@ targets:
       - Shared/FetchPolicy.swift
       - Shared/Models.swift
       - Shared/UsageClient.swift
+      - Shared/CodexAccount.swift
+      - Shared/CodexUsageClient.swift
+      - Shared/FileActivity.swift
       - ClaudePulse/UsageHistoryFile.swift
+      - ClaudePulse/PopoverLayout.swift
+      - ClaudePulse/AccountRefresh.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: true

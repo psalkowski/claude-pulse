@@ -63,11 +63,25 @@ extension UsageFormat {
         }
     }
 
+    static func barColor(_ window: UsageWindow, forecast: UsageForecast?, muted: Bool) -> Color {
+        if muted { return .gray }
+        return forecast.map { riskColor($0.risk) } ?? color(window.utilization)
+    }
+
     static func riskLabel(_ risk: ForecastRisk) -> String {
         switch risk {
         case .onPace: return "On pace"
         case .atRisk: return "At risk"
         case .likely: return "Likely to hit"
+        }
+    }
+
+    static func shortTitle(_ kind: UsageWindowKind) -> String {
+        switch kind {
+        case .fiveHour: return "Session"
+        case .sevenDay: return "Week"
+        case .sevenDayOpus: return "Opus"
+        case .sevenDayFable: return "Fable"
         }
     }
 
