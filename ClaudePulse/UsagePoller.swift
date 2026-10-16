@@ -6,6 +6,7 @@ import WidgetKit
 final class UsagePoller: ObservableObject {
     @Published private(set) var snapshot: UsageSnapshot
     @Published private(set) var isRefreshing = false
+    @Published private(set) var forecasts: [String: AccountForecasts] = [:]
 
     static let pollInterval: TimeInterval = 60
     static let activeWindow: TimeInterval = 10 * 60
@@ -14,15 +15,23 @@ final class UsagePoller: ObservableObject {
     private var timer: Timer?
     private var started = false
     private let client = UsageClient()
+    private let history: UsageHistoryStore?
+    private var lastAttemptAt: [String: Date] = [:]
 
     init() {
-        snapshot = SnapshotStore.load() ?? .empty
+        let history = UsageHistoryStore()
+        let snapshot = SnapshotStore.load() ?? .empty
+        self.history = history
+        self.snapshot = snapshot
+        forecasts = UsageHistoryStore.forecasts(for: snapshot, history: history.history, now: Date())
     }
 
     // For doc rendering only: a poller seeded with fixed data and no timers.
     init(previewing snapshot: UsageSnapshot) {
         self.snapshot = snapshot
         self.started = true
+        history = nil
+        forecasts = UsageHistoryStore.forecasts(for: snapshot, history: UsageHistory(), now: Date())
     }
 
     func start() {
@@ -40,8 +49,9 @@ final class UsagePoller: ObservableObject {
     }
 
     // `force` = user-initiated (Refresh button): fetch every token account even
-    // if idle, knowingly starting a session. Automatic polling only fetches
-    // accounts that are active (or when "keep sessions active" is on).
+    // if idle, knowingly starting a session. Automatic polling fetches accounts
+    // that are active (or all when "keep sessions active" is on), and otherwise
+    // only every few minutes while an account's 5-hour window is already open.
     func refresh(force: Bool = false) {
         guard !isRefreshing else { return }
         isRefreshing = true
@@ -67,20 +77,26 @@ final class UsagePoller: ObservableObject {
                 (DiscoveredAccount(signedOut: id, lastSeen: previousByID[id]), nil)
             }
         let discovered = onDisk + signedOut
-        var results: [AccountUsage] = []
+        var results: [FetchOutcome] = []
 
-        await withTaskGroup(of: AccountUsage.self) { group in
+        await withTaskGroup(of: FetchOutcome.self) { group in
             for (account, lastActivity) in discovered {
                 let previous = previousByID[account.id]
                 let token = TokenStore.token(for: account.id)
-                let isActive = lastActivity.map { Date().timeIntervalSince($0) < Self.activeWindow } ?? false
-                let shouldFetch = token != nil && (force || keepAlive || isActive)
+                let policy = FetchPolicy.Inputs(
+                    hasToken: token != nil,
+                    force: force,
+                    keepAlive: keepAlive,
+                    isActive: lastActivity.map { Date().timeIntervalSince($0) < Self.activeWindow } ?? false,
+                    sessionResetsAt: previous?.fiveHour?.resetsAt,
+                    lastAttemptAt: lastAttemptAt[account.id]
+                )
                 group.addTask { [client] in
                     await Self.buildUsage(
                         account: account,
                         token: token,
                         previous: previous,
-                        shouldFetch: shouldFetch,
+                        policy: policy,
                         client: client
                     )
                 }
@@ -88,18 +104,36 @@ final class UsagePoller: ObservableObject {
             for await result in group { results.append(result) }
         }
 
-        snapshot = UsageSnapshot(fetchedAt: Date(), accounts: Self.sorted(results))
+        let now = Date()
+        for result in results {
+            if let attemptedAt = result.attemptedAt { lastAttemptAt[result.usage.id] = attemptedAt }
+            if let report = result.report, let attemptedAt = result.attemptedAt {
+                history?.record(report, accountID: result.usage.id, at: attemptedAt)
+            }
+        }
+        snapshot = UsageSnapshot(fetchedAt: now, accounts: Self.sorted(results.map(\.usage)))
         SnapshotStore.save(snapshot)
         WidgetCenter.shared.reloadAllTimelines()
+        if let history {
+            history.reconcileWithDisk(now: now)
+            forecasts = UsageHistoryStore.forecasts(for: snapshot, history: history.history, now: now)
+            history.refreshSeeds(for: onDisk.map(\.0), now: now)
+        }
+    }
+
+    private struct FetchOutcome {
+        var usage: AccountUsage
+        var attemptedAt: Date?
+        var report: UsageReport?
     }
 
     private static func buildUsage(
         account: DiscoveredAccount,
         token: String?,
         previous: AccountUsage?,
-        shouldFetch: Bool,
+        policy: FetchPolicy.Inputs,
         client: UsageClient
-    ) async -> AccountUsage {
+    ) async -> FetchOutcome {
         let label = account.label
         var usage = AccountUsage(
             id: account.id,
@@ -119,7 +153,10 @@ final class UsagePoller: ObservableObject {
             configDir: account.configDir?.path,
             origin: account.origin
         )
-        guard shouldFetch, let token else { return usage }
+        let attemptedAt = Date()
+        guard FetchPolicy.shouldFetch(policy, now: attemptedAt), let token else {
+            return FetchOutcome(usage: usage)
+        }
         do {
             let report = try await client.fetch(accessToken: token)
             // Each window updates only if this fetch actually returned it;
@@ -131,12 +168,13 @@ final class UsagePoller: ObservableObject {
             usage.sevenDayFable = report.sevenDayFable ?? usage.sevenDayFable
             usage.lastSuccessAt = Date()
             usage.tokenFailure = nil
+            return FetchOutcome(usage: usage, attemptedAt: attemptedAt, report: report)
         } catch UsageClientError.unauthorized(let failure) {
             usage.tokenFailure = failure
         } catch {
             usage.fetchError = error.localizedDescription
         }
-        return usage
+        return FetchOutcome(usage: usage, attemptedAt: attemptedAt)
     }
 
     // A usage window whose reset time has passed has rolled over to ~0 while we

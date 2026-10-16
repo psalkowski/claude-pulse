@@ -70,3 +70,20 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.claudepulse.app.widget
+  ClaudePulseTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - ClaudePulseTests
+      - Shared/UsageForecast.swift
+      - Shared/FetchPolicy.swift
+      - Shared/Models.swift
+      - Shared/UsageClient.swift
+      - ClaudePulse/UsageHistoryFile.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+        PRODUCT_BUNDLE_IDENTIFIER: com.claudepulse.tests
+    scheme:
+      testTargets:
+        - ClaudePulseTests

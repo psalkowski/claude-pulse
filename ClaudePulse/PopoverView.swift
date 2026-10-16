@@ -205,6 +205,17 @@ private struct AccountCard: View {
 
     private var tokenFailed: Bool { account.tokenFailure != nil }
 
+    private var forecasts: AccountForecasts { poller.forecasts[account.id] ?? [:] }
+
+    private static func title(_ kind: UsageWindowKind) -> String {
+        switch kind {
+        case .fiveHour: "Current session"
+        case .sevenDay: "Weekly · All models"
+        case .sevenDayOpus: "Weekly · Opus"
+        case .sevenDayFable: "Weekly · Fable"
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 8) {
@@ -275,17 +286,21 @@ private struct AccountCard: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
         } else if account.hasAnyData {
-            if let window = account.fiveHour {
-                UsageRow(title: "Current session", window: window, muted: tokenFailed)
+            ForEach(UsageWindowKind.allCases, id: \.self) { kind in
+                if let window = account.window(kind) {
+                    UsageRow(
+                        title: Self.title(kind),
+                        window: window,
+                        forecast: tokenFailed ? nil : forecasts[kind],
+                        muted: tokenFailed
+                    )
+                }
             }
-            if let window = account.sevenDay {
-                UsageRow(title: "Weekly · All models", window: window, muted: tokenFailed)
-            }
-            if let window = account.sevenDayOpus {
-                UsageRow(title: "Weekly · Opus", window: window, muted: tokenFailed)
-            }
-            if let window = account.sevenDayFable {
-                UsageRow(title: "Weekly · Fable", window: window, muted: tokenFailed)
+            if !tokenFailed, let note = UsageFormat.learningNote(Array(forecasts.values)) {
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         } else {
             Text(account.configDir == nil
@@ -387,10 +402,16 @@ private extension View {
 private struct UsageRow: View {
     let title: String
     let window: UsageWindow
+    var forecast: UsageForecast?
     var muted = false
 
+    private var barColor: Color {
+        if muted { return .gray }
+        return forecast.map { UsageFormat.riskColor($0.risk) } ?? UsageFormat.color(window.utilization)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(title)
                     .font(.subheadline)
@@ -399,14 +420,53 @@ private struct UsageRow: View {
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
-            UsageBar(fraction: window.utilization / 100, color: muted ? .gray : UsageFormat.color(window.utilization))
             // A stable window value never re-evaluates the row, so a plain Text would
-            // freeze the countdown; TimelineView ticks the clock to recompute it.
+            // freeze the countdown and the time-passed mark; TimelineView ticks the clock.
             TimelineView(.everyMinute) { context in
-                Text(UsageFormat.resetText(window.resetsAt, now: context.date))
+                VStack(alignment: .leading, spacing: 7) {
+                    UsageBar(
+                        fraction: window.utilization / 100,
+                        color: barColor,
+                        height: forecast == nil ? 6 : 8,
+                        projectedFraction: forecast.map { $0.projected / 100 },
+                        elapsedFraction: forecast?.elapsedFraction(now: context.date)
+                    )
+                    .help(forecast == nil ? "" : "Solid: used · Faded: forecast by reset · Line: time passed")
+                    HStack {
+                        Text(UsageFormat.resetText(window.resetsAt, now: context.date))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if let forecast { projection(forecast) }
+                    }
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                }
             }
+            if let forecast { status(forecast) }
         }
+    }
+
+    @ViewBuilder
+    private func projection(_ forecast: UsageForecast) -> some View {
+        let color = forecast.projected > 100 ? Color.red : UsageFormat.riskColor(forecast.risk)
+        if let hitAt = forecast.hitAt {
+            Text("Hits 100% ~\(UsageFormat.moment(hitAt))")
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
+        } else {
+            Text("~\(Int(forecast.projected.rounded()))%").fontWeight(.semibold).foregroundColor(color)
+                + Text(" by end of \(UsageFormat.endNoun(forecast.kind))").foregroundColor(.secondary)
+        }
+    }
+
+    private func status(_ forecast: UsageForecast) -> some View {
+        let label = Text(UsageFormat.riskLabel(forecast.risk))
+            .fontWeight(.semibold)
+            .foregroundColor(UsageFormat.riskColor(forecast.risk))
+        let advice = UsageFormat.advice(forecast).map {
+            Text(" · \($0)").foregroundColor(forecast.risk > .onPace ? .primary : .secondary)
+        }
+        return (advice.map { label + $0 } ?? label)
+            .font(.caption)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
