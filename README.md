@@ -98,6 +98,11 @@ From then on the app **updates itself** — it checks GitHub daily, downloads ne
 releases in the background, and relaunches into the new version silently. The gear
 menu's **Check for Updates…** triggers a check on demand.
 
+> **On 0.5.2 or 0.6.0?** Those releases never start their updater (and **Check for
+> Updates…** stays greyed out), so they can't reach a newer version on their own.
+> Update once by hand — `brew upgrade --cask claude-pulse`, or drag the latest DMG
+> over the old app — and automatic updates resume from there.
+
 ## First-time setup (one token per subscription)
 
 Because Claude Pulse never reads the Keychain, you give it a token explicitly — a
@@ -175,8 +180,14 @@ git clone <this-repo> claude-pulse && cd claude-pulse
 
 `install.sh` checks for Xcode, installs XcodeGen via Homebrew if missing, builds, copies
 the app to `/Applications`, and launches it. Versions are stamped from git (latest tag +
-commit count), so a source build behind the newest release will auto-update to the
-release binary, while a build ahead of it is left alone.
+commit count). A source build never updates itself; re-run `./install.sh` to pick up
+new commits, or install a release to get automatic updates.
+
+For the edit-build-run loop use `make run`. It builds the Debug configuration into
+`build/Build/Products/Debug`, a separate **Claude Pulse Dev** app
+(`com.claudepulse.app.dev`) with its own settings and login item, and it never enables
+Launch at Login by itself — so a development build can't take over the installed app's
+Launch at Login or come back on its own at the next login.
 
 Releases are cut by pushing a tag: `git tag v0.X.Y && git push origin v0.X.Y` — GitHub
 Actions builds, ad-hoc signs the app, signs the Sparkle appcast (EdDSA), publishes the

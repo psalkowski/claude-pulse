@@ -8,7 +8,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DocRenderer.renderIfRequested()
+        #if !DEBUG
         enableLaunchAtLoginOnFirstRun()
+        #endif
         _ = AppUpdater.shared
         WidgetCenter.shared.reloadAllTimelines()
     }
