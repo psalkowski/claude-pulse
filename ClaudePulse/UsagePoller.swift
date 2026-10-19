@@ -177,7 +177,16 @@ final class UsagePoller: ObservableObject {
     }
 
     private static func sorted(_ accounts: [AccountUsage]) -> [AccountUsage] {
-        accounts.sorted { rank($0) == rank($1) ? $0.id < $1.id : rank($0) < rank($1) }
+        let byRank = accounts.sorted { rank($0) == rank($1) ? $0.id < $1.id : rank($0) < rank($1) }
+        return PopoverLayout.ordered(byRank, by: MenuBarSettings.storedAccountOrder())
+    }
+
+    func move(_ accountID: String, onto targetID: String) {
+        let ids = PopoverLayout.moved(snapshot.accounts.map(\.id), accountID, onto: targetID)
+        MenuBarSettings.storeAccountOrder(ids)
+        snapshot.accounts = PopoverLayout.ordered(snapshot.accounts, by: ids)
+        SnapshotStore.save(snapshot)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private static func rank(_ account: AccountUsage) -> Int {

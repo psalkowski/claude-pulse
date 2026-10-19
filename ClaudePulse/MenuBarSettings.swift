@@ -21,6 +21,16 @@ final class MenuBarSettings: ObservableObject {
         Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
     }
 
+    private nonisolated static let orderKey = "accountOrder"
+
+    nonisolated static func storedAccountOrder() -> [String] {
+        UserDefaults.standard.stringArray(forKey: orderKey) ?? []
+    }
+
+    nonisolated static func storeAccountOrder(_ ids: [String]) {
+        UserDefaults.standard.set(ids, forKey: orderKey)
+    }
+
     func isVisible(_ accountID: String) -> Bool {
         !hiddenAccountIDs.contains(accountID)
     }

@@ -4,12 +4,16 @@ import ServiceManagement
 struct PopoverView: View {
     @EnvironmentObject private var poller: UsagePoller
     var chromeless = false
-    @State private var chosenExpansion: String?? = nil
+    @AppStorage("popoverExpandedAccount") private var storedExpansion: String?
 
     private var accounts: [AccountUsage] { poller.snapshot.accounts }
 
     private var expandedID: String? {
-        chosenExpansion ?? PopoverLayout.defaultExpanded(accounts, forecasts: poller.forecasts)
+        PopoverLayout.expanded(stored: chromeless ? nil : storedExpansion, accounts, forecasts: poller.forecasts)
+    }
+
+    private func expand(_ id: String?) {
+        storedExpansion = id ?? PopoverLayout.noneExpanded
     }
 
     var body: some View {
@@ -21,6 +25,7 @@ struct PopoverView: View {
             } else {
                 ForEach(accounts) { account in
                     AccountCard(account: account, chromeless: chromeless, showsProvider: showsProvider)
+                        .reorderable(account.id, move: poller.move)
                 }
             }
             Divider()
@@ -28,7 +33,6 @@ struct PopoverView: View {
         }
         .padding(14)
         .frame(width: 360)
-        .onAppear { chosenExpansion = .some(PopoverLayout.defaultExpanded(accounts, forecasts: poller.forecasts)) }
     }
 
     private var showsProvider: Bool { PopoverLayout.showsProviders(accounts) }
@@ -41,16 +45,18 @@ struct PopoverView: View {
                         account: account,
                         chromeless: chromeless,
                         showsProvider: showsProvider,
-                        collapse: { chosenExpansion = .some(nil) }
+                        collapse: { expand(nil) }
                     )
+                    .reorderable(account.id, move: poller.move)
                 } else {
                     AccountRow(
                         account: account,
                         forecasts: poller.forecasts[account.id] ?? [:],
                         risk: PopoverLayout.worstRisk(of: account, in: poller.forecasts),
                         showsProvider: showsProvider,
-                        expand: { chosenExpansion = .some(account.id) }
+                        expand: { expand(account.id) }
                     )
+                    .reorderable(account.id, move: poller.move)
                 }
             }
         }
@@ -453,7 +459,32 @@ private struct CredentialNotice: View {
     }
 }
 
+private struct Reorderable: ViewModifier {
+    let id: String
+    let move: (_ dragged: String, _ target: String) -> Void
+    @State private var isTargeted = false
+
+    func body(content: Content) -> some View {
+        content
+            .draggable(id)
+            .dropDestination(for: String.self) { dropped, _ in
+                guard let dragged = dropped.first else { return false }
+                move(dragged, id)
+                return true
+            } isTargeted: { isTargeted = $0 }
+            .overlay {
+                if isTargeted {
+                    RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor, lineWidth: 2)
+                }
+            }
+    }
+}
+
 private extension View {
+    func reorderable(_ id: String, move: @escaping (_ dragged: String, _ target: String) -> Void) -> some View {
+        modifier(Reorderable(id: id, move: move))
+    }
+
     func greyedOut(_ greyed: Bool) -> some View {
         opacity(greyed ? 0.45 : 1)
     }

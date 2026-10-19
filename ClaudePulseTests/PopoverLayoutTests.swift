@@ -39,4 +39,30 @@ final class PopoverLayoutTests: XCTestCase {
         let allHidden = UsageSnapshot(fetchedAt: now, accounts: accounts, hiddenAccountIDs: accounts.map(\.id))
         XCTAssertEqual(allHidden.widgetAccounts.map(\.id), accounts.map(\.id))
     }
+
+    func testChosenExpansionSurvivesUntilItsSubscriptionDisappears() {
+        let accounts = [account("a"), account("b"), account("c")]
+        let forecasts: [String: AccountForecasts] = ["c": forecast(projected: 140)]
+
+        XCTAssertEqual(PopoverLayout.expanded(stored: nil, accounts, forecasts: forecasts), "c")
+        XCTAssertEqual(PopoverLayout.expanded(stored: "a", accounts, forecasts: forecasts), "a")
+        XCTAssertNil(PopoverLayout.expanded(stored: PopoverLayout.noneExpanded, accounts, forecasts: forecasts))
+        XCTAssertEqual(PopoverLayout.expanded(stored: "gone", accounts, forecasts: forecasts), "c")
+    }
+
+    func testSavedOrderLeadsAndNewSubscriptionsFollowInTheirDefaultOrder() {
+        let accounts = [account("a"), account("b"), account("c"), account("d")]
+
+        XCTAssertEqual(PopoverLayout.ordered(accounts, by: []).map(\.id), ["a", "b", "c", "d"])
+        XCTAssertEqual(PopoverLayout.ordered(accounts, by: ["c", "gone", "a"]).map(\.id), ["c", "a", "b", "d"])
+    }
+
+    func testDroppingOntoASubscriptionTakesItsPlace() {
+        let ids = ["a", "b", "c", "d"]
+
+        XCTAssertEqual(PopoverLayout.moved(ids, "a", onto: "c"), ["b", "c", "a", "d"])
+        XCTAssertEqual(PopoverLayout.moved(ids, "d", onto: "b"), ["a", "d", "b", "c"])
+        XCTAssertEqual(PopoverLayout.moved(ids, "a", onto: "a"), ids)
+        XCTAssertEqual(PopoverLayout.moved(ids, "stranger", onto: "b"), ids)
+    }
 }
