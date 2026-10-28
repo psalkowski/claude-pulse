@@ -33,6 +33,7 @@ struct PopoverView: View {
         }
         .padding(14)
         .frame(width: 360)
+        .fitsHostingWindow()
     }
 
     private var showsProvider: Bool { PopoverLayout.showsProviders(accounts) }
