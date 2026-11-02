@@ -43,7 +43,7 @@ enum DocRenderer {
         save(widget, to: outDir.appendingPathComponent("widget.png"))
 
         let menubar = MenuBarIconView(gauges: [
-            GaugeSpec(utilization: 28, dimmed: false),
+            GaugeSpec(utilization: 23, dimmed: false),
             GaugeSpec(utilization: 100, dimmed: false),
             GaugeSpec(utilization: 22, dimmed: false),
         ])

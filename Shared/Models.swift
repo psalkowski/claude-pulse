@@ -88,12 +88,11 @@ struct UsageSnapshot: Codable, Equatable {
         accounts: [
             AccountUsage(
                 id: "sample-personal",
-                label: "Max 20×",
+                label: "Ultra",
                 detail: "you@example.com",
                 subscriptionType: "max",
                 fetchError: nil,
                 lastSuccessAt: Date(),
-                fiveHour: UsageWindow(utilization: 28, resetsAt: Date().addingTimeInterval(3 * 3600 + 17 * 60)),
                 sevenDay: UsageWindow(utilization: 23, resetsAt: Date().addingTimeInterval(2.2 * 86400)),
                 sevenDayOpus: nil,
                 sevenDayFable: UsageWindow(utilization: 12, resetsAt: Date().addingTimeInterval(2.2 * 86400))

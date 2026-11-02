@@ -13,7 +13,7 @@ enum PlanLabel {
         let type = profile.organizationType ?? ""
         switch type {
         case "claude_max":
-            return (rateBand(profile.rateLimitTier) ?? "Max", profile.email)
+            return (maxPlanName(profile.rateLimitTier), profile.email)
         case "claude_pro":
             return ("Pro", profile.email)
         case "claude_team", "claude_enterprise":
@@ -48,6 +48,12 @@ enum PlanLabel {
             return "Standard seat"
         }
         return nil
+    }
+
+    // Anthropic renamed the 20× Max plan to Ultra; its tier still reads max_20x.
+    private static func maxPlanName(_ rateTier: String?) -> String {
+        if rateMultiplier(rateTier) == 20 { return "Ultra" }
+        return rateBand(rateTier) ?? "Max"
     }
 
     // "default_claude_max_5x" / "..._x5" → "Max 5×"

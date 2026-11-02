@@ -7,7 +7,7 @@
 [![Latest release](https://img.shields.io/github/v/release/psalkowski/claude-pulse)](https://github.com/psalkowski/claude-pulse/releases/latest)
 
 A native macOS **menubar app + widget** that shows your Claude Code usage limits —
-the 5-hour session and weekly windows, with reset times — for **every** Claude Code
+the 5-hour session (on plans that have one) and weekly windows, with reset times — for **every** Claude Code
 subscription on your machine at once (e.g. a personal Max account and a Team account).
 Signed in to Codex with ChatGPT? Your Codex limits show up alongside, picked up
 automatically from `~/.codex`.
@@ -17,9 +17,10 @@ show, and it **never touches the macOS Keychain**, so it never triggers a keycha
 password prompt.
 
 - **Menubar:** one ring per subscription with the 5-hour % inside (the weekly % for a
-  plan without a 5-hour window, such as Codex on ChatGPT Pro); click for the full
-  breakdown.
-- **Popover:** per subscription — Current session, Weekly (all models), and Weekly
+  plan without a 5-hour window, such as Ultra or Codex on ChatGPT Pro); click for the
+  full breakdown.
+- **Popover:** per subscription — Current session (when the plan has a 5-hour window),
+  Weekly (all models), and Weekly
   Fable/Opus when available, each with a progress bar, reset time and a **forecast**:
   where usage will be when the window resets, whether you're on pace, at risk or likely
   to hit the limit, when you'd hit 100%, and how much less to use (or how long to
@@ -48,7 +49,7 @@ Every bar in the popover answers that before it happens:
 
 It learns your own rhythm — which hours of which weekdays you usually use Claude — from
 the readings Pulse collects, so it also sees usage from claude.ai and other machines
-while a 5-hour window is open, not just Claude Code on this Mac. Until it has two days of readings it starts from your
+while a 5-hour window is open (or any time, on a plan without one), not just Claude Code on this Mac. Until it has two days of readings it starts from your
 Claude Code transcript history, or from your current pace. Details in
 [How it works](#how-it-works).
 
@@ -183,7 +184,9 @@ Pulse" → add the small or medium size.
   while the window has at least 2 minutes left by your Mac's clock, and gives up on any
   request after 60 seconds. That is a margin, not a guarantee from Anthropic: a request
   the server receives only after the window has ended would open a new one. Once the
-  window has closed it stays quiet and shows the last reading. Turn on **Keep sessions active**
+  window has closed it stays quiet and shows the last reading. A plan without a 5-hour
+  window, such as Ultra, has no session to start, so it is checked every 5 minutes
+  even when idle. Turn on **Keep sessions active**
   (gear menu) to poll regardless and deliberately keep a session warm.
 - **Codex** usage comes from ChatGPT's read-only Codex usage endpoint
   (`chatgpt.com/backend-api/wham/usage`), called with the access token in
