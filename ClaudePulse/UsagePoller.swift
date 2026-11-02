@@ -52,7 +52,8 @@ final class UsagePoller: ObservableObject {
     // `force` = user-initiated (Refresh button): fetch every token account even
     // if idle, knowingly starting a session. Automatic polling fetches accounts
     // that are active (or all when "keep sessions active" is on), and otherwise
-    // only every few minutes while an account's 5-hour window is already open.
+    // only every few minutes while an account's 5-hour window is already open,
+    // or always for a plan that has no 5-hour window to start.
     func refresh(force: Bool = false) {
         guard !isRefreshing else { return }
         isRefreshing = true
@@ -84,14 +85,15 @@ final class UsagePoller: ObservableObject {
 
         await withTaskGroup(of: AccountRefresh.Outcome.self) { group in
             for (account, lastActivity) in discovered {
-                let previous = previousByID[account.id]
+                let samples = history?.history.samples[account.id] ?? [:]
+                let previous = previousByID[account.id].map { AccountRefresh.droppingOutlivedSession($0, history: samples) }
                 let token = TokenStore.token(for: account.id)
                 let policy = FetchPolicy.Inputs(
                     hasToken: token != nil,
                     force: force,
                     keepAlive: keepAlive,
                     isActive: Self.isActive(lastActivity),
-                    sessionResetsAt: previous?.fiveHour?.resetsAt,
+                    session: FetchPolicy.Session(previous),
                     lastAttemptAt: lastAttemptAt[account.id]
                 )
                 group.addTask { [client] in

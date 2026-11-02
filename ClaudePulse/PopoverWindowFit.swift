@@ -49,8 +49,14 @@ private struct WindowFit: NSViewRepresentable {
 extension View {
     // A MenuBarExtra window doesn't follow its content when that shrinks (an
     // account collapsing, one disappearing), leaving blank bands above and below.
-    func fitsHostingWindow() -> some View {
-        modifier(HostingWindowFit())
+    // Off for offscreen rendering, which can't draw the AppKit view it relies on.
+    @ViewBuilder
+    func fitsHostingWindow(enabled: Bool) -> some View {
+        if enabled {
+            modifier(HostingWindowFit())
+        } else {
+            self
+        }
     }
 }
 

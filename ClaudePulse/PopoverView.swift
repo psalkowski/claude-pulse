@@ -25,7 +25,7 @@ struct PopoverView: View {
             } else {
                 ForEach(accounts) { account in
                     AccountCard(account: account, chromeless: chromeless, showsProvider: showsProvider)
-                        .reorderable(account.id, move: poller.move)
+                        .reorderable(account.id, enabled: !chromeless, move: poller.move)
                 }
             }
             Divider()
@@ -33,7 +33,7 @@ struct PopoverView: View {
         }
         .padding(14)
         .frame(width: 360)
-        .fitsHostingWindow()
+        .fitsHostingWindow(enabled: !chromeless)
     }
 
     private var showsProvider: Bool { PopoverLayout.showsProviders(accounts) }
@@ -48,7 +48,7 @@ struct PopoverView: View {
                         showsProvider: showsProvider,
                         collapse: { expand(nil) }
                     )
-                    .reorderable(account.id, move: poller.move)
+                    .reorderable(account.id, enabled: !chromeless, move: poller.move)
                 } else {
                     AccountRow(
                         account: account,
@@ -57,7 +57,7 @@ struct PopoverView: View {
                         showsProvider: showsProvider,
                         expand: { expand(account.id) }
                     )
-                    .reorderable(account.id, move: poller.move)
+                    .reorderable(account.id, enabled: !chromeless, move: poller.move)
                 }
             }
         }
@@ -482,8 +482,13 @@ private struct Reorderable: ViewModifier {
 }
 
 private extension View {
-    func reorderable(_ id: String, move: @escaping (_ dragged: String, _ target: String) -> Void) -> some View {
-        modifier(Reorderable(id: id, move: move))
+    @ViewBuilder
+    func reorderable(_ id: String, enabled: Bool, move: @escaping (_ dragged: String, _ target: String) -> Void) -> some View {
+        if enabled {
+            modifier(Reorderable(id: id, move: move))
+        } else {
+            self
+        }
     }
 
     func greyedOut(_ greyed: Bool) -> some View {

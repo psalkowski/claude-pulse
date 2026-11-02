@@ -46,6 +46,20 @@ enum AccountRefresh {
         return usage
     }
 
+    // Snapshots saved before a plan dropped its 5-hour window kept the closed
+    // one forever. A weekly reading requested after the last session reset
+    // would have recorded a new session had the plan one, so it has none.
+    static func droppingOutlivedSession(_ usage: AccountUsage, history: [UsageWindowKind: [UsageSample]]) -> AccountUsage {
+        guard let session = usage.fiveHour, session.resetsAt == nil,
+              let lastWeeklyRead = history[.sevenDay]?.last?.at,
+              let lastSessionResetsAt = history[.fiveHour]?.last?.resetsAt,
+              lastWeeklyRead.timeIntervalSince(lastSessionResetsAt) > FetchPolicy.idleSafetyMargin
+        else { return usage }
+        var usage = usage
+        usage.fiveHour = nil
+        return usage
+    }
+
     static func fetched(
         _ usage: AccountUsage,
         attemptedAt: Date,
@@ -54,10 +68,12 @@ enum AccountRefresh {
         var usage = usage
         do {
             let report = try await fetch()
-            // Each window updates only if this fetch actually returned it;
-            // otherwise it keeps the last-known value. The Haiku probe may
-            // include the Fable window; Fable itself is never queried.
-            usage.fiveHour = report.fiveHour ?? usage.fiveHour
+            // A reply without a 5-hour window means the plan has none (Ultra),
+            // so that one is taken as returned. Every other window updates
+            // only if this fetch actually returned it; otherwise it keeps the
+            // last-known value. The Haiku probe may include the Fable window;
+            // Fable itself is never queried.
+            usage.fiveHour = report.fiveHour
             usage.sevenDay = report.sevenDay ?? usage.sevenDay
             usage.sevenDayOpus = report.sevenDayOpus ?? usage.sevenDayOpus
             usage.sevenDayFable = report.sevenDayFable ?? usage.sevenDayFable
