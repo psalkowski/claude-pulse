@@ -21,6 +21,15 @@ enum AccountOrigin: String, Codable {
 enum UsageProvider: String, Codable {
     case claude
     case codex
+    case gemini
+
+    var name: String {
+        switch self {
+        case .claude: "Claude"
+        case .codex: "Codex"
+        case .gemini: "Gemini"
+        }
+    }
 }
 
 struct AccountUsage: Codable, Identifiable, Equatable {
@@ -43,6 +52,7 @@ struct AccountUsage: Codable, Identifiable, Equatable {
     var origin: AccountOrigin? = nil
     var provider: UsageProvider? = nil
 
+    var usageProvider: UsageProvider { provider ?? .claude }
     var isCodex: Bool { provider == .codex }
 
     var hasAnyData: Bool {

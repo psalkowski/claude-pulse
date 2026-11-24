@@ -16,24 +16,41 @@ enum AccountRefresh {
         now: Date,
         read: (CodexAccount) async throws -> UsageReport
     ) async -> Outcome {
-        var usage = carryingOver(previous, now: now, into: AccountUsage(
+        let usage = AccountUsage(
             id: account.id,
             label: account.title,
             detail: account.email,
             subscriptionType: account.plan,
             tokenFailure: previous?.tokenFailure,
             provider: .codex
-        ))
+        )
         if account.isExpired(at: now) {
-            usage.tokenFailure = .expired
-            return Outcome(usage: usage)
+            var expired = carryingOver(previous, now: now, into: usage)
+            expired.tokenFailure = .expired
+            return Outcome(usage: expired)
         }
-        guard FetchPolicy.shouldRead(force: force, isActive: isActive, lastAttemptAt: lastAttemptAt, now: now) else {
-            return Outcome(usage: usage)
-        }
-        return await fetched(usage, attemptedAt: now) {
+        return await self.read(
+            usage, previous: previous, force: force, isActive: isActive, lastAttemptAt: lastAttemptAt, now: now
+        ) {
             try await read(account)
         }
+    }
+
+    static func read(
+        _ usage: AccountUsage,
+        previous: AccountUsage?,
+        force: Bool,
+        isActive: Bool,
+        lastAttemptAt: Date?,
+        now: Date,
+        report: () async throws -> UsageReport
+    ) async -> Outcome {
+        var usage = carryingOver(previous, now: now, into: usage)
+        guard FetchPolicy.shouldRead(force: force, isActive: isActive, lastAttemptAt: lastAttemptAt, now: now) else {
+            usage.fetchError = previous?.fetchError
+            return Outcome(usage: usage)
+        }
+        return await fetched(usage, attemptedAt: now, report: report)
     }
 
     static func carryingOver(_ previous: AccountUsage?, now: Date, into usage: AccountUsage) -> AccountUsage {

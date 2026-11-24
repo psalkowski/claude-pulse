@@ -10,11 +10,13 @@ A native macOS **menubar app + widget** that shows your Claude Code usage limits
 the 5-hour session (on plans that have one) and weekly windows, with reset times — for **every** Claude Code
 subscription on your machine at once (e.g. a personal Max account and a Team account).
 Signed in to Codex with ChatGPT? Your Codex limits show up alongside, picked up
-automatically from `~/.codex`.
+automatically from `~/.codex`. Using Gemini through the Antigravity CLI (`agy`)? Its
+Gemini model limits show up too.
 
 It reads the same numbers Claude Code's `/usage` and claude.ai's "usage limits" panel
-show, and it **never touches the macOS Keychain**, so it never triggers a keychain
-password prompt.
+show. For Claude and Codex it **never touches the macOS Keychain**, so it never
+triggers a keychain password prompt. For Gemini it runs `agy`, which reads its own
+sign-in from the Keychain just as it does when you use it yourself.
 
 - **Menubar:** one ring per subscription with the 5-hour % inside (the weekly % for a
   plan without a 5-hour window, such as Ultra or Codex on ChatGPT Pro); click for the
@@ -74,7 +76,7 @@ Popover (click the menubar icon) and the medium widget:
 |------|-----|
 | macOS 14 (Sonoma) or newer | WidgetKit + `MenuBarExtra` |
 | Apple Silicon | Release binaries are arm64-only (Intel: [build from source](#development--build-from-source)) |
-| One or more logged-in Claude Code subscriptions, and/or Codex signed in with ChatGPT | Source of the accounts |
+| One or more logged-in Claude Code subscriptions, and/or Codex signed in with ChatGPT, and/or the Antigravity CLI (`agy`) signed in | Source of the accounts |
 
 Release builds are **ad-hoc signed** (no paid Apple Developer account), so macOS
 Gatekeeper asks for a one-time confirmation on first launch — see [Install](#install).
@@ -162,6 +164,15 @@ Codex card greys out and asks you to open Codex; it recovers on its own once Cod
 refreshed. Codex signed in with an API key, or set to keep its sign-in in the Keychain,
 has no subscription limits for Claude Pulse to show.
 
+### Gemini needs no setup
+
+If the Antigravity CLI is installed (`~/.local/bin/agy`, or `agy` in `/opt/homebrew/bin`
+or `/usr/local/bin`) and signed in, Claude Pulse shows a **Gemini** card with the Gemini
+models' 5-hour and weekly limits. It asks `agy` itself (`agy -p /usage`), so it never
+handles your Google sign-in. Antigravity's separate pool for Claude and GPT models is not
+shown. If `agy` can't report (signed out, offline, or no answer within 30 seconds), the
+card shows its message in red and keeps the last numbers until the next good read.
+
 ### Add the widget
 
 After the first launch, right-click the desktop → **Edit Widgets** → search "Claude
@@ -193,6 +204,10 @@ Pulse" → add the small or medium size.
   `~/.codex/auth.json`. Reading it costs nothing and starts no window, so Codex is checked
   every minute while it was used in the last 10 minutes (`~/.codex/sessions/` file times)
   and every 5 minutes otherwise. Its forecast learns from Pulse's own readings.
+- **Gemini** usage comes from running `agy -p /usage --output-format json`, a read-only
+  command that costs no quota and writes no `agy` log. It runs every minute while `agy`
+  was used in the last 10 minutes (transcript file times under
+  `~/.gemini/antigravity-cli/brain/`) and every 5 minutes otherwise.
 - **Forecast:** every reading is kept for 28 days
   (`~/Library/Application Support/ClaudePulse/usage-history.json`) and learned into an
   hour-of-week usage rhythm. From it Pulse projects usage at reset, the chance of hitting
@@ -221,7 +236,7 @@ reliable trigger.
 - **Show in Menu Bar** — pick which subscriptions appear in the menubar; the widget
   shows these first.
 - **Keep sessions active** — poll every Claude subscription regardless of activity
-  (Codex is read on its own schedule; a read never opens a Codex window).
+  (Codex and Gemini are read on their own schedule; a read never opens their windows).
 - **Launch at Login**.
 - **Check for Updates…** — manual update check (updates also run automatically).
 

@@ -1,11 +1,11 @@
 import Foundation
 
 enum FileActivity {
-    static func latestModification(under directory: URL) -> Date? {
+    static func latestModification(under directory: URL, skippingHidden: Bool = true) -> Date? {
         guard let enumerator = FileManager.default.enumerator(
             at: directory,
             includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
+            options: skippingHidden ? [.skipsHiddenFiles] : []
         ) else { return nil }
         var latest: Date?
         for case let url as URL in enumerator where url.pathExtension == "jsonl" {

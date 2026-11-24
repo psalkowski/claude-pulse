@@ -13,6 +13,7 @@ enum UsageClientError: LocalizedError {
     case http(Int)
     case invalidResponse
     case noUsageData
+    case commandFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -21,6 +22,7 @@ enum UsageClientError: LocalizedError {
         case .http(let code): return "HTTP \(code)"
         case .invalidResponse: return "Invalid response"
         case .noUsageData: return "No usage data returned"
+        case .commandFailed(let message): return message
         }
     }
 }
