@@ -8,7 +8,7 @@ enum PopoverLayout {
     }
 
     static func showsProviders(_ accounts: [AccountUsage]) -> Bool {
-        Set(accounts.map(\.isCodex)).count > 1
+        Set(accounts.map(\.usageProvider)).count > 1
     }
 
     static func worstRisk(of account: AccountUsage, in forecasts: [String: AccountForecasts]) -> ForecastRisk? {

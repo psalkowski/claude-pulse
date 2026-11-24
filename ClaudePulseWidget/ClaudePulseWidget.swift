@@ -32,7 +32,7 @@ struct UsageWidget: Widget {
                 .containerBackground(.background, for: .widget)
         }
         .configurationDisplayName("Claude Pulse")
-        .description("Session and weekly limits for your Claude Code and Codex subscriptions.")
+        .description("Session and weekly limits for your Claude Code, Codex and Gemini subscriptions.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

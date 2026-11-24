@@ -89,6 +89,7 @@ targets:
       - Shared/UsageClient.swift
       - Shared/CodexAccount.swift
       - Shared/CodexUsageClient.swift
+      - Shared/GeminiUsageClient.swift
       - Shared/FileActivity.swift
       - ClaudePulse/UsageHistoryFile.swift
       - ClaudePulse/PopoverLayout.swift

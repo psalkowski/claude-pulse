@@ -67,7 +67,7 @@ struct PopoverView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("No subscriptions found")
                 .font(.headline)
-            Text("Claude Pulse looks for logged-in Claude Code config dirs under your home folder (~/.claude, ~/.claude-team, ~/.config/…) and a Codex sign-in in ~/.codex. If a Claude subscription lives somewhere else, add it by hand.")
+            Text("Claude Pulse looks for logged-in Claude Code config dirs under your home folder (~/.claude, ~/.claude-team, ~/.config/…) a Codex sign-in in ~/.codex and the Antigravity CLI (agy) for Gemini. If a Claude subscription lives somewhere else, add it by hand.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -252,11 +252,11 @@ struct AccountCard: View {
     private var forecasts: AccountForecasts { poller.forecasts[account.id] ?? [:] }
 
     private func title(_ kind: UsageWindowKind) -> String {
-        switch (kind, account.isCodex) {
-        case (.fiveHour, false): "Current session"
-        case (.fiveHour, true): "5-hour window"
-        case (.sevenDay, false): "Weekly · All models"
-        case (.sevenDay, true): "Weekly"
+        switch (kind, account.usageProvider == .claude) {
+        case (.fiveHour, true): "Current session"
+        case (.fiveHour, false): "5-hour window"
+        case (.sevenDay, true): "Weekly · All models"
+        case (.sevenDay, false): "Weekly"
         case (.sevenDayOpus, _): "Weekly · Opus"
         case (.sevenDayFable, _): "Weekly · Fable"
         }
@@ -273,7 +273,7 @@ struct AccountCard: View {
                     header
                 }
                 statusBadge
-                if !chromeless && !account.isCodex { tokenMenu }
+                if !chromeless && account.usageProvider == .claude { tokenMenu }
             }
             if let failure = account.tokenFailure {
                 tokenFailureNotice(failure)
@@ -508,7 +508,7 @@ private struct AccountTitle: View {
                     .font(.headline)
                     .lineLimit(compact ? 1 : nil)
                 if showsProvider {
-                    Text(account.isCodex ? "Codex" : "Claude")
+                    Text(account.usageProvider.name)
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 5)

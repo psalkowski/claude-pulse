@@ -65,12 +65,13 @@ final class UsagePoller: ObservableObject {
 
     private func performRefresh(force: Bool) async {
         let keepAlive = UserDefaults.standard.bool(forKey: Self.keepAliveKey)
-        let (onDisk, codex) = await Task.detached(priority: .utility) {
+        let (onDisk, codex, gemini) = await Task.detached(priority: .utility) {
             let claude = AccountDiscovery.all().map { account -> (DiscoveredAccount, Date?) in
                 (account, account.lastActivity())
             }
             let codex = CodexAccount.discover().map { ($0, CodexAccount.lastActivity()) }
-            return (claude, codex)
+            let gemini = GeminiUsageClient.installedExecutable().map { ($0, GeminiUsageClient.lastActivity()) }
+            return (claude, codex, gemini)
         }.value
 
         let previousByID = Dictionary(snapshot.accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -119,6 +120,23 @@ final class UsagePoller: ObservableObject {
                         lastAttemptAt: lastAttemptAt,
                         now: Date(),
                         read: codexClient.fetch
+                    )
+                }
+            }
+            if case let (executable, lastActivity)? = gemini {
+                let previous = previousByID[GeminiUsageClient.usage.id]
+                let isActive = Self.isActive(lastActivity)
+                let lastAttemptAt = lastAttemptAt[GeminiUsageClient.usage.id]
+                let client = GeminiUsageClient(executable: executable)
+                group.addTask {
+                    await AccountRefresh.read(
+                        GeminiUsageClient.usage,
+                        previous: previous,
+                        force: force,
+                        isActive: isActive,
+                        lastAttemptAt: lastAttemptAt,
+                        now: Date(),
+                        report: client.fetch
                     )
                 }
             }
@@ -192,7 +210,11 @@ final class UsagePoller: ObservableObject {
     }
 
     private static func rank(_ account: AccountUsage) -> Int {
-        if account.isCodex { return 3 }
+        switch account.usageProvider {
+        case .codex: return 3
+        case .gemini: return 4
+        case .claude: break
+        }
         let type = account.subscriptionType?.lowercased() ?? ""
         if type.contains("max") || type.contains("pro") { return 0 }
         if type.contains("team") || type.contains("enterprise") { return 1 }
